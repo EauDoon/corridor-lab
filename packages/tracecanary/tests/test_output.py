@@ -24,6 +24,16 @@ class OutputTests(unittest.TestCase):
             with contextlib.redirect_stderr(io.StringIO()):
                 self.assertEqual(main(args + ["--output", str(FIXTURES / "safe-export.json")]), 2)
 
+    def test_contract_review_output_cannot_replace_the_contract(self):
+        with tempfile.TemporaryDirectory() as directory:
+            contract = Path(directory) / "contract.json"
+            contract.write_bytes((FIXTURES / "contract.json").read_bytes())
+            before = contract.read_bytes()
+            with contextlib.redirect_stderr(io.StringIO()):
+                self.assertEqual(main(["contract", "review", str(contract), "--output", str(contract)]), 2)
+            self.assertEqual(contract.read_bytes(), before)
+            self.assertEqual(main(["contract", "review", str(contract), "--output", str(Path(directory) / "review.txt")]), 0)
+
     def test_failed_atomic_replace_preserves_previous_report_and_cleans_temp(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "report.json"

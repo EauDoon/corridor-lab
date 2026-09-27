@@ -537,6 +537,7 @@ def _contract_authoring(args: Any) -> int:
     try:
         if command == "review":
             raw = load_json(args.contract_path, max_bytes=MAX_CAMPAIGN_SUMMARY_BYTES, max_depth=MAX_CAMPAIGN_SUMMARY_DEPTH)
+            protect_inputs(args.output, [args.contract_path])
             report = review_contract(raw)
             output = render_json(report) if args.format == "json" else render_contract_review_human(report)
             _emit(output, args.output)
