@@ -94,6 +94,12 @@ Nothing here is published until the owner approves the release (see
 
 ### Fixed
 
+- **TraceCanary campaign summaries could replace a campaign input.**
+  `campaign run --save-summary PATH` only protected the project contract,
+  so pointing it at a `--candidate`, `--control`, or `--baseline` file
+  outside the project directory overwrote that export with the value-free
+  summary. Every input the run actually read is now protected, matching the
+  contract itself. Regression covers the collision.
 - **TraceCanary `contract review` could destroy its own input.**
   `contract review CONTRACT --output CONTRACT` wrote the review report over
   the contract file and still exited 0, silently losing the reviewed

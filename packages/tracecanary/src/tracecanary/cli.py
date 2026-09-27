@@ -490,7 +490,8 @@ def _campaign(args: Any) -> int:
             if summary_path is not None:
                 summary = campaign_summary(campaign)
                 summary_text = render_json(summary)
-                protect_inputs(summary_path, [loaded.resolved["contract"]], loaded.path.parent)
+                sources = [contract_path, control, baseline, batch, *(path for _, path in candidates)]
+                protect_inputs(summary_path, [path for path in sources if path is not None], loaded.path.parent)
                 write_report(summary_path, summary_text)
                 print(f"Value-free campaign summary saved to {summary_path}")
             return _status_exit(campaign["status"])

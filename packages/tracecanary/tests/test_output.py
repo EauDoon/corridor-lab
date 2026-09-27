@@ -34,6 +34,21 @@ class OutputTests(unittest.TestCase):
             self.assertEqual(contract.read_bytes(), before)
             self.assertEqual(main(["contract", "review", str(contract), "--output", str(Path(directory) / "review.txt")]), 0)
 
+    def test_campaign_summary_cannot_replace_a_campaign_input(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            contract = root / "contract.json"
+            contract.write_bytes((FIXTURES / "contract.json").read_bytes())
+            project = root / "project"
+            project.mkdir()
+            candidate = root / "candidate.json"
+            candidate.write_bytes((FIXTURES / "leaked-prompt.json").read_bytes())
+            before = candidate.read_bytes()
+            with contextlib.redirect_stderr(io.StringIO()), contextlib.redirect_stdout(io.StringIO()):
+                self.assertEqual(main(["project", "create", "--directory", str(project), "--project-id", "demo", "--contract", str(contract)]), 0)
+                self.assertEqual(main(["campaign", "run", str(project), "--candidate", str(candidate), "--save-summary", str(candidate)]), 2)
+            self.assertEqual(candidate.read_bytes(), before)
+
     def test_failed_atomic_replace_preserves_previous_report_and_cleans_temp(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "report.json"
