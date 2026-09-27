@@ -442,7 +442,7 @@ def canonical_json_text(value: Any) -> str:
 
 
 def _campaign(args: Any) -> int:
-    from tracecanary.campaign import CAMPAIGN_VERSION, campaign_summary, compare_summaries, run_campaign
+    from tracecanary.campaign import CAMPAIGN_VERSION, campaign_summary, compare_summaries, render_comparison_human, run_campaign
     from tracecanary.project import load_project
     from tracecanary.report import ensure_text_values_absent
 
@@ -499,7 +499,7 @@ def _campaign(args: Any) -> int:
             baseline_summary = load_json(args.baseline_summary, max_bytes=MAX_CAMPAIGN_SUMMARY_BYTES, max_depth=32)
             candidate_summary = load_json(args.candidate_summary, max_bytes=MAX_CAMPAIGN_SUMMARY_BYTES, max_depth=32)
             comparison = compare_summaries(baseline_summary, candidate_summary)
-            output = render_json(comparison) if args.format == "json" else render_campaign_human(comparison)
+            output = render_json(comparison) if args.format == "json" else render_comparison_human(comparison)
             _emit(output, args.output)
             return EXIT_PASS
         raise InputError(f"unsupported campaign command: {command}")
@@ -512,22 +512,6 @@ def _campaign(args: Any) -> int:
 
 
 MAX_CAMPAIGN_SUMMARY_BYTES = 1_000_000
-
-
-def render_campaign_human(comparison: dict[str, Any]) -> str:
-    lines = [
-        f"TraceCanary campaign comparison: {comparison['campaign_status_change'][0]} -> {comparison['campaign_status_change'][1]}",
-        f"Contract version: {comparison['contract_version']}",
-    ]
-    for name, phase in comparison["phases"].items():
-        lines.append(f"{name}: {phase['baseline_status']} -> {phase['candidate_status']}")
-        for label in ("persistent_findings", "resolved_findings", "new_findings"):
-            counts = phase[label]
-            if counts:
-                rendered = ", ".join(f"{code} x{count}" for code, count in counts.items())
-                lines.append(f"  {label.replace('_', ' ')}: {rendered}")
-    lines.append("Finding codes are aggregated by value-free code; no entity identity or causal attribution is implied.")
-    return "\n".join(lines) + "\n"
 
 
 def _contract_authoring(args: Any) -> int:
