@@ -104,6 +104,15 @@ Nothing here is published until the owner approves the release (see
 
 ### Fixed
 
+- **TraceCanary gated batch items reported a stale finding summary.**
+  `batch --population-scope ... --population-minimum ...` merged the gate's
+  TC013 violation into each item but kept the pre-merge `summary` object, so
+  `summary.total` under-counted the findings actually listed. A leaking
+  export that failed the gate reported `total: 2` against three listed
+  violations, and the human renderer printed "2 finding(s)" above three
+  lines. The summary is now recomputed from the merged violations. The
+  counting itself moved out of `build_report` into a shared `summarize`
+  helper rather than being written twice.
 - **Corridor Lab CSV export mangled negative metric values.** The
   spreadsheet-formula guard prefixed any cell starting with `=`, `+`, `-`,
   `@`, tab, or CR, so declared negative metrics were written as text with a

@@ -21,6 +21,7 @@ from tracecanary.report import (
     Violation,
     build_report,
     ensure_object_values_absent,
+    summarize,
 )
 
 
@@ -91,11 +92,13 @@ def run_batch(
                 gated = population_gate(contract, payload, population_scope, population_minimum)
                 combined = dict(report)
                 existing = {json.dumps(violation, sort_keys=True) for violation in report["violations"]}
-                combined["violations"] = list(report["violations"]) + [
-                    violation for violation in gated["violations"]
+                merged = [Violation(**violation) for violation in report["violations"]] + [
+                    Violation(**violation) for violation in gated["violations"]
                     if json.dumps(violation, sort_keys=True) not in existing
                 ]
                 pair = {report["status"], gated["status"]}
+                combined["violations"] = [violation.as_dict() for violation in merged]
+                combined["summary"] = summarize(merged)
                 combined["status"] = "unresolved" if "unresolved" in pair else "regression" if "regression" in pair else "pass"
                 combined["population_gate"] = gated["population_gate"]
                 report = combined
