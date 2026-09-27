@@ -42,6 +42,21 @@ class BatchPopulationGateTests(unittest.TestCase):
         self.assertEqual(len(unresolved), 2)  # contract.json and invalid-export.json stay unresolved
         self.assertEqual(report["status"], "unresolved")
 
+    def test_merged_summary_counts_every_violation_including_the_gate_finding(self):
+        report = run_batch(self.contract, self.root, False, False, None, coverage=False,
+                           population_scope="link", population_minimum=3)
+        for item in report["items"]:
+            summary = item["report"]["summary"]
+            with self.subTest(item=item["id"]):
+                self.assertEqual(summary["total"], len(item["report"]["violations"]))
+                self.assertEqual(
+                    summary["total"],
+                    sum(summary[name] for name in ("canary_leaks", "forbidden_attributes", "forbidden_paths",
+                                                   "missing_retained_fields", "baseline_regressions"))
+                    + sum(1 for violation in item["report"]["violations"] if violation["code"] not in
+                          ("TC001", "TC002", "TC003", "TC004", "TC005")),
+                )
+
     def test_gate_passes_when_population_is_sufficient(self):
         report = run_batch(self.contract, self.root, False, False, None, coverage=False,
                            population_scope="span", population_minimum=1)

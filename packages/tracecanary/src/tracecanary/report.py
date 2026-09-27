@@ -90,6 +90,18 @@ class UnsafeReportError(ValueError):
     """A report cannot be emitted without exposing a protected value."""
 
 
+def summarize(violations: list[Violation]) -> ReportSummary:
+    """Count violations by code so a merged report never keeps a stale summary."""
+    return {
+        "canary_leaks": sum(issue.code == "TC001" for issue in violations),
+        "forbidden_attributes": sum(issue.code == "TC002" for issue in violations),
+        "forbidden_paths": sum(issue.code == "TC003" for issue in violations),
+        "missing_retained_fields": sum(issue.code == "TC004" for issue in violations),
+        "baseline_regressions": sum(issue.code == "TC005" for issue in violations),
+        "total": len(violations),
+    }
+
+
 def build_report(
     contract_version: str,
     status: Status,
@@ -100,14 +112,7 @@ def build_report(
 ) -> Report:
     safe_violations = [_redact_violation(issue, redacted_values) for issue in violations]
     ordered = sorted(safe_violations, key=lambda issue: (issue.code, issue.path, issue.label or "", issue.key or ""))
-    summary: ReportSummary = {
-        "canary_leaks": sum(issue.code == "TC001" for issue in ordered),
-        "forbidden_attributes": sum(issue.code == "TC002" for issue in ordered),
-        "forbidden_paths": sum(issue.code == "TC003" for issue in ordered),
-        "missing_retained_fields": sum(issue.code == "TC004" for issue in ordered),
-        "baseline_regressions": sum(issue.code == "TC005" for issue in ordered),
-        "total": len(ordered),
-    }
+    summary: ReportSummary = summarize(ordered)
     return {
         "contract_version": contract_version,
         "mode": mode,
