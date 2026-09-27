@@ -5,13 +5,18 @@ from __future__ import annotations
 import csv
 import html
 import io
+import re
 
 from .canonical import MAX_REPORT_BYTES, canonical_dumps
+
+# A leading sign only starts a formula when digits follow it; a bare negative
+# number such as -0.04 is a declared metric value and must round-trip as one.
+_PLAIN_NUMBER = re.compile(r"[+-]?(?:\d+(?:\.\d*)?|\.\d+)$")
 
 
 def _safe_csv_cell(value: object) -> object:
     """Prefix text that spreadsheet software can treat as a formula."""
-    if not isinstance(value, str):
+    if not isinstance(value, str) or _PLAIN_NUMBER.match(value):
         return value
     for character in value:
         if character in "=+-@\t\r":

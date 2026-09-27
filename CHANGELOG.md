@@ -104,6 +104,15 @@ Nothing here is published until the owner approves the release (see
 
 ### Fixed
 
+- **Corridor Lab CSV export mangled negative metric values.** The
+  spreadsheet-formula guard prefixed any cell starting with `=`, `+`, `-`,
+  `@`, tab, or CR, so declared negative metrics were written as text with a
+  leading apostrophe: a `-0.04` probability delta became `'-0.04`, a `-6`
+  guardrail headroom became `'-6`. Every CSV column that can legitimately go
+  negative (scenario-diff `delta`, guardrail headroom, break-even cost
+  deltas) was affected. A cell that is exactly a plain decimal number is now
+  left alone; a sign followed by anything else is still prefixed, so the
+  injection guard is unchanged for text.
 - **TraceCanary campaign summaries could replace a campaign input.**
   `campaign run --save-summary PATH` only protected the project contract,
   so pointing it at a `--candidate`, `--control`, or `--baseline` file

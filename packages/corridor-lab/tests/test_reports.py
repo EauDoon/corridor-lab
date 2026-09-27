@@ -5,7 +5,7 @@ from unittest.mock import patch
 
 from corridor_lab.canonical import atomic_write_text
 from corridor_lab.comparison import evaluate_scenario
-from corridor_lab.report import render_report
+from corridor_lab.report import _safe_csv_cell, render_report
 from corridor_lab.scenario import parse_scenario
 from helpers import route, scenario
 
@@ -64,6 +64,21 @@ class ReportTests(unittest.TestCase):
         report = evaluate_scenario(parse_scenario(scenario(routes=[data])))
         csv_text = render_report(report, "csv")
         self.assertIn("' \r@SUM(A1:A2)", csv_text)
+
+    def test_csv_negative_metric_values_are_not_mangled_as_formulas(self):
+        report = {
+            "report_version": "corridor-lab.analysis/v1",
+            "analysis": "guardrail-headroom",
+            "columns": ["route_id", "headroom"],
+            "rows": [{"route_id": "r", "headroom": "-0.04"}],
+        }
+        self.assertIn(",-0.04\n", render_report(report, "csv"))
+        for hostile in ("-cmd", "-1-1", "--1", "=cmd", "+@x", "@SUM(1)"):
+            with self.subTest(value=hostile):
+                self.assertEqual(_safe_csv_cell(hostile), "'" + hostile)
+        for number in ("-6", "-0.04", "+1.5", "1.5", "-0"):
+            with self.subTest(value=number):
+                self.assertEqual(_safe_csv_cell(number), number)
 
     def test_batch_markdown_includes_requested_paths(self):
         report = {
