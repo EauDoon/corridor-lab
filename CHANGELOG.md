@@ -94,6 +94,12 @@ Nothing here is published until the owner approves the release (see
 
 ### Fixed
 
+- **TraceCanary `contract review` could destroy its own input.**
+  `contract review CONTRACT --output CONTRACT` wrote the review report over
+  the contract file and still exited 0, silently losing the reviewed
+  contract. The output path is now checked against the contract, matching the
+  protection every other report-writing command already applied. A
+  regression test covers the collision and the still-valid separate path.
 - **TraceCanary saved coverage thresholds.** `campaign run PROJECT` now
   applies the saved `coverage.minimum_ratio` to named candidates instead of
   silently omitting the gate unless the CLI option is repeated. Explicit
