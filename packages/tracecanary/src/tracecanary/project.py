@@ -395,21 +395,23 @@ def build_manifest(
     max_batch_files: int = DEFAULT_MAX_BATCH_FILES,
 ) -> ProjectManifest:
     """Fingerprint the chosen inputs and assemble a validated manifest."""
+    batch_ref = make_input_ref(project_dir, Path(batch), folder=True,
+                               max_files=max_batch_files, max_bytes=max_bytes) if batch is not None else None
     manifest = ProjectManifest(
         project_id=_identifier(project_id, "project_id"),
         description=description,
-        contract=make_input_ref(project_dir, Path(contract)),
-        input=make_input_ref(project_dir, Path(input)) if input is not None else None,
-        baseline=make_input_ref(project_dir, Path(baseline)) if baseline is not None else None,
-        candidate=make_input_ref(project_dir, Path(candidate)) if candidate is not None else None,
+        contract=make_input_ref(project_dir, Path(contract), max_bytes=max_bytes),
+        input=make_input_ref(project_dir, Path(input), max_bytes=max_bytes) if input is not None else None,
+        baseline=make_input_ref(project_dir, Path(baseline), max_bytes=max_bytes) if baseline is not None else None,
+        candidate=make_input_ref(project_dir, Path(candidate), max_bytes=max_bytes) if candidate is not None else None,
         batch=BatchConfig(
-            path=make_input_ref(project_dir, Path(batch), folder=True).path,
-            sha256=fingerprint_tree(Path(batch).resolve(), max_files=max_batch_files, max_bytes=max_bytes),
+            path=batch_ref.path,
+            sha256=batch_ref.sha256,
             recursive=batch_recursive,
             include_paths=batch_include_paths,
             minimum_ratio=batch_minimum_ratio,
         )
-        if batch is not None else None,
+        if batch_ref is not None else None,
         coverage=CoverageConfig(
             minimum_ratio=minimum_ratio,
             population_scope=population_scope,

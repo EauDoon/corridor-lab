@@ -104,6 +104,16 @@ Nothing here is published until the owner approves the release (see
 
 ### Fixed
 
+- **TraceCanary project batch fingerprinting ignored the caller's budget and
+  hashed the batch directory twice.** `build_manifest` called
+  `make_input_ref(folder=True)` with the module default of 256 files while a
+  separate second `fingerprint_tree` call used the caller's `max_batch_files`,
+  so a looser caller budget was silently refused at the 256-file default
+  before the honoured call ever ran, and every byte in the batch directory was
+  read and hashed twice. The one `make_input_ref` result now supplies both
+  `path` and `sha256` and receives the caller's budgets, and the per-file
+  `max_bytes` is threaded through to every input ref rather than only the
+  batch. No CLI behaviour changes: the CLI never passed these arguments.
 - **TraceCanary gated batch items reported a stale finding summary.**
   `batch --population-scope ... --population-minimum ...` merged the gate's
   TC013 violation into each item but kept the pre-merge `summary` object, so

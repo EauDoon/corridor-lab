@@ -115,6 +115,26 @@ class ProjectResolutionTests(unittest.TestCase):
             loaded = load_project(manifest_path)
             self.assertTrue(any("batch directory" in problem and "changed" in problem for problem in loaded.problems))
 
+    def test_caller_budget_governs_the_batch_fingerprint_in_both_directions(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            project = root / "project"
+            contract = project / "inputs" / "contract.json"
+            contract.parent.mkdir(parents=True)
+            contract.write_text(json.dumps(bundle()["contract.json"]), encoding="utf-8", newline="\n")
+            batch = project / "batch"
+            batch.mkdir()
+            for index in range(300):
+                (batch / f"export-{index:03d}.json").write_text(
+                    json.dumps(bundle()["safe-export.json"]), encoding="utf-8", newline="\n")
+            self.assertEqual(
+                build_manifest(project, project_id="budget", contract=contract, batch=batch,
+                               max_batch_files=512).batch.path,
+                "batch",
+            )
+            with self.assertRaisesRegex(Exception, "100-file fingerprint budget"):
+                build_manifest(project, project_id="budget", contract=contract, batch=batch, max_batch_files=100)
+
     def test_write_refuses_to_replace_an_existing_manifest(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
