@@ -92,6 +92,16 @@ Nothing here is published until the owner approves the release (see
 
 - None.
 
+### Removed
+
+- **TraceCanary duplicated campaign-comparison renderer.** `cli.py` carried a
+  byte-identical private copy of `campaign.render_comparison_human` under the
+  name `render_campaign_human`, so `campaign compare --format human` did not
+  use the function its own module documents as "shared by the CLI and the
+  desktop". The copy is removed and the shared renderer is called directly.
+  The internal `tracecanary.cli.render_campaign_human` name is gone; rendered
+  output is byte-for-byte unchanged.
+
 ### Fixed
 
 - **TraceCanary campaign summaries could replace a campaign input.**
