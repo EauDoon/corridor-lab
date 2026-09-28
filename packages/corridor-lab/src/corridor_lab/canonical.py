@@ -82,7 +82,25 @@ def parse_json_bytes(raw: bytes) -> Any:
     except (UnicodeDecodeError, json.JSONDecodeError, RecursionError, DecimalException) as exc:
         raise InputError(f"invalid JSON: {exc}") from exc
     _check_nesting(value)
+    _check_unicode_scalars(value)
     return value
+
+
+def _check_unicode_scalars(value: Any) -> None:
+    """Reject escaped lone surrogates that cannot be written as UTF-8."""
+    pending = [value]
+    while pending:
+        current = pending.pop()
+        if isinstance(current, str):
+            try:
+                current.encode("utf-8")
+            except UnicodeEncodeError as exc:
+                raise InputError("JSON contains an invalid Unicode scalar value") from exc
+        elif isinstance(current, dict):
+            pending.extend(current.keys())
+            pending.extend(current.values())
+        elif isinstance(current, list):
+            pending.extend(current)
 
 
 def parse_json_text(text: str) -> Any:

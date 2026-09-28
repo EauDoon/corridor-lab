@@ -104,6 +104,12 @@ Nothing here is published until the owner approves the release (see
 
 ### Fixed
 
+- **Corridor Lab accepted JSON lone surrogates that cannot be written as UTF-8.**
+  ``json.loads`` turns ``\\uD800`` into a lone surrogate. ``validate`` then
+  reported the scenario as valid, and a later report write failed while
+  encoding UTF-8. Parsing now rejects unpaired surrogates in keys and
+  strings, and still accepts a real supplementary-plane character.
+
 - **Corridor Lab CSV formula guard ignored a leading control character.**
   A route label such as a NUL followed by ``=1+1`` was written as a raw cell.
   Spreadsheet software that skips the control then evaluates the rest as a
