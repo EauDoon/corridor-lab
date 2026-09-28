@@ -80,9 +80,14 @@ class LoadedProject:
 
 
 def fingerprint_file(path: Path, *, max_bytes: int) -> str:
-    """Hash a bounded synthetic input file without following links."""
-    raw = path.read_bytes() if path.stat().st_size <= max_bytes else None
-    if raw is None:
+    """Hash a bounded synthetic input file without trusting a stale size.
+
+    ``stat`` then ``read_bytes`` hashed the whole file when the file grew
+    after the size check, so the fingerprint budget could be skipped.
+    """
+    with path.open("rb") as handle:
+        raw = handle.read(max_bytes + 1)
+    if len(raw) > max_bytes:
         raise InputError(f"project input exceeds the {max_bytes}-byte fingerprint budget: {path}")
     return hashlib.sha256(raw).hexdigest()
 

@@ -4,16 +4,19 @@ import sys
 import tempfile
 import unittest
 from contextlib import redirect_stderr, redirect_stdout
+from unittest.mock import patch
 from io import StringIO
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from tracecanary.fixture import bundle
+from tracecanary.canonical import InputError
 from tracecanary.project import (
     PROJECT_MANIFEST_NAME,
     PROJECT_MANIFEST_VERSION,
     build_manifest,
+    fingerprint_file,
     load_project,
     parse_manifest,
     write_project,
@@ -134,6 +137,23 @@ class ProjectResolutionTests(unittest.TestCase):
             )
             with self.assertRaisesRegex(Exception, "100-file fingerprint budget"):
                 build_manifest(project, project_id="budget", contract=contract, batch=batch, max_batch_files=100)
+
+    def test_fingerprint_obeys_the_byte_budget_when_stat_reports_a_short_size(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            path = Path(temporary) / "trace.json"
+            path.write_bytes(b"{" + b" " * 200 + b"}")
+            real_stat = Path.stat
+
+            def short_stat(self, *args, **kwargs):
+                stat = real_stat(self, *args, **kwargs)
+                if self == path:
+                    return os.stat_result((stat.st_mode, stat.st_ino, stat.st_dev, stat.st_nlink,
+                                           stat.st_uid, stat.st_gid, 10, stat.st_atime, stat.st_mtime, stat.st_ctime))
+                return stat
+
+            with patch.object(Path, "stat", short_stat):
+                with self.assertRaisesRegex(InputError, "exceeds the 50-byte fingerprint budget"):
+                    fingerprint_file(path, max_bytes=50)
 
     def test_write_refuses_to_replace_an_existing_manifest(self):
         with tempfile.TemporaryDirectory() as temporary:
