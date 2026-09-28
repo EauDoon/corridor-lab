@@ -282,6 +282,21 @@ def chain_changes(variants: dict[str, DerivedVariant], name: str, base_raw: dict
     return rows
 
 
+def _route_change_key(remainder: str) -> tuple[str, str] | None:
+    """Split ``ROUTE_ID.FIELD`` when the route id itself contains dots.
+
+    Field names are a fixed list, and the longest match wins so
+    ``liquidity.holding_days`` is not read as a route id.
+    """
+    for field in sorted(ROUTE_CHANGE_FIELDS, key=len, reverse=True):
+        suffix = "." + field
+        if remainder.endswith(suffix) and len(remainder) > len(suffix):
+            route_id = remainder[: -len(suffix)]
+            if route_id and route_id.strip() == route_id:
+                return route_id, field
+    return None
+
+
 def parse_variant_changes_argument(text: str) -> tuple[dict[str, str], dict[str, dict[str, str]]]:
     """Parse ``transaction.FIELD=VALUE;route.ROUTE_ID.FIELD=VALUE`` arguments."""
     if not text.strip():
@@ -299,14 +314,14 @@ def parse_variant_changes_argument(text: str) -> tuple[dict[str, str], dict[str,
                 raise InputError(f"variant change repeated: {key}")
             transaction[field] = value.strip()
         elif key.startswith("route."):
-            remainder = key.removeprefix("route.")
-            route_id, dot, field = remainder.partition(".")
-            if not dot or not route_id.strip() or not field.strip():
+            split = _route_change_key(key.removeprefix("route."))
+            if split is None:
                 raise InputError(f"route change must be route.ROUTE_ID.FIELD=VALUE: {chunk}")
-            fields = routes.setdefault(route_id.strip(), {})
-            if field.strip() in fields:
+            route_id, field = split
+            fields = routes.setdefault(route_id, {})
+            if field in fields:
                 raise InputError(f"variant change repeated: {key}")
-            fields[field.strip()] = value.strip()
+            fields[field] = value.strip()
         else:
             raise InputError(f"variant change must start with transaction. or route.: {key}")
     return validate_changes({"transaction": transaction, "routes": routes})
