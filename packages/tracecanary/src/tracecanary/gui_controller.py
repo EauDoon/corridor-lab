@@ -19,7 +19,7 @@ from tracecanary.campaign import (
     render_comparison_human,
     run_campaign as run_campaign_engine,
 )
-from tracecanary.canonical import InputError, canonical_json, load_json
+from tracecanary.canonical import InputError, parse_json_text, canonical_json, load_json
 from tracecanary.checker import check_trace
 from tracecanary.comparison import diff_traces
 from tracecanary.contract import Contract, ContractError, load_contract, parse_contract
@@ -133,8 +133,13 @@ class TraceCanaryController:
         it is validated first and refuses to replace an existing file.
         """
         try:
-            raw = json.loads(text)
+            # Same limits as load_contract, so a saved draft is a file that loader accepts.
+            raw = parse_json_text(text, max_bytes=1_000_000, max_depth=50)
             validate_draft(raw)
+        except InputError as exc:
+            if "not valid JSON" in str(exc) or "UTF-8" in str(exc):
+                return self._guidance("contract-save", GUI001, f"The contract draft is not valid JSON. ({exc})")
+            return self._guidance("contract-save", GUI001, f"The contract draft failed validation. ({exc})")
         except (json.JSONDecodeError, TypeError) as exc:
             return self._guidance("contract-save", GUI001, f"The contract draft is not valid JSON. ({exc})")
         except (ContractError, ValueError) as exc:
@@ -152,7 +157,7 @@ class TraceCanaryController:
 
     def validate_draft_text(self, text: str) -> dict:
         """Validate a contract draft strictly; raises ContractError on failure."""
-        raw = json.loads(text)
+        raw = parse_json_text(text, max_bytes=1_000_000, max_depth=50)
         return validate_draft(raw)
 
     def validate(self, contract_path: str | Path) -> GuiResult:

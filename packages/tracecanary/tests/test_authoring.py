@@ -152,6 +152,23 @@ class ControllerAuthoringTests(unittest.TestCase):
             self.assertIn("failed validation", invalid.human)
             self.assertFalse((Path(temporary) / "invalid.json").exists())
 
+    def test_duplicate_key_draft_is_rejected_and_not_saved(self):
+        from tracecanary.canonical import InputError
+
+        controller = TraceCanaryController()
+        body = json.dumps(bundle()["contract.json"])
+        duplicate = '{"contract_version":"tracecanary/v9",' + body[1:]
+        with self.assertRaisesRegex(InputError, "duplicate"):
+            controller.validate_draft_text(duplicate)
+        with tempfile.TemporaryDirectory() as temporary:
+            destination = Path(temporary) / "contract.json"
+            saved = controller.save_contract_draft(duplicate, destination)
+            self.assertEqual(saved.status, "unresolved")
+            self.assertFalse(destination.exists())
+            # A collapsed parse would have kept the last contract_version and
+            # written a file load_contract then refuses.
+            self.assertNotIn("tracecanary/v9", saved.human)
+
     def test_review_via_controller_matches_cli(self):
         with tempfile.TemporaryDirectory() as temporary, redirect_stdout(StringIO()), redirect_stderr(StringIO()):
             root = Path(temporary)
