@@ -109,7 +109,10 @@ def review_contract(raw: Any) -> Report:
                      if any(key != other and key.startswith(other) for other in forbidden_keys)
                      or any(key.startswith(prefix) for prefix in forbidden_prefixes)]
     for key in shadowed_keys:
-        add("ineffective", f"forbidden_attribute_keys[{forbidden_keys.index(key)}]",
+        # Locations elsewhere in this review are 1-based rule ordinals.
+        # list.index is 0-based, so the second key was reported as the first.
+        ordinal = forbidden_keys.index(key) + 1
+        add("ineffective", f"forbidden_attribute_keys[{ordinal}]",
             f"another forbidden prefix already covers {key!r}",
             "keep the broader prefix rule and drop the redundant exact key")
 
