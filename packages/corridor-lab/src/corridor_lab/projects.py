@@ -495,7 +495,12 @@ def write_project(manifest_path: Path, manifest: ProjectManifest, *, replace: bo
         raise InputError("project manifest must be a .json file path or an existing directory")
     if target.exists() and not replace:
         raise InputError(f"project manifest already exists: {target}")
-    atomic_write_text(target, manifest_text(manifest))
+    text = manifest_text(manifest)
+    # Refuse a document the loader cannot read. add-experiment and add-variant
+    # build a manifest directly, so a budget miss used to replace a valid
+    # project with one project validate could not open.
+    parse_manifest(json.loads(text))
+    atomic_write_text(target, text)
 
 
 def parse_experiment_argument(text: str) -> Experiment:

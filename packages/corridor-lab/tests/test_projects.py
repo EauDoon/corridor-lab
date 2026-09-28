@@ -188,5 +188,43 @@ class ProjectCliTests(unittest.TestCase):
             self.assertFalse((project / PROJECT_MANIFEST_NAME).exists())
 
 
+class ProjectWriteBudgetTests(unittest.TestCase):
+    def test_add_experiment_past_the_budget_does_not_replace_a_readable_manifest(self):
+        from corridor_lab.projects import MAX_EXPERIMENTS
+
+        with tempfile.TemporaryDirectory() as temporary, __import__("contextlib").redirect_stdout(__import__("io").StringIO()), __import__("contextlib").redirect_stderr(__import__("io").StringIO()):
+            root = Path(temporary)
+            manifest_path, _inputs = build_test_project(root)
+            document = json.loads(manifest_path.read_text(encoding="utf-8"))
+            document["experiments"] = [
+                {"name": f"exp-{index:02d}", "analysis": "deadline-target", "fields": {"probability": "0.5"}}
+                for index in range(MAX_EXPERIMENTS)
+            ]
+            manifest_path.write_text(json.dumps(document), encoding="utf-8")
+            before = manifest_path.read_bytes()
+            code = cli_main(["project", "add-experiment", str(root), "--experiment", "extra:deadline-target:probability=0.9"])
+            self.assertEqual(code, 2)
+            self.assertEqual(manifest_path.read_bytes(), before)
+            self.assertEqual(len(load_project(manifest_path).manifest.experiments), MAX_EXPERIMENTS)
+
+    def test_add_variant_past_the_budget_does_not_replace_a_readable_manifest(self):
+        from corridor_lab.projects import MAX_VARIANTS
+
+        with tempfile.TemporaryDirectory() as temporary, __import__("contextlib").redirect_stdout(__import__("io").StringIO()), __import__("contextlib").redirect_stderr(__import__("io").StringIO()):
+            root = Path(temporary)
+            manifest_path, _inputs = build_test_project(root)
+            document = json.loads(manifest_path.read_text(encoding="utf-8"))
+            document["variants"] = {
+                f"v{index:02d}": {"base": "scenario", "changes": {"transaction": {"deadline_hours": "1"}}}
+                for index in range(MAX_VARIANTS)
+            }
+            manifest_path.write_text(json.dumps(document), encoding="utf-8")
+            before = manifest_path.read_bytes()
+            code = cli_main(["project", "add-variant", str(root), "--variant", "extra", "--changes", "transaction.deadline_hours=2"])
+            self.assertEqual(code, 2)
+            self.assertEqual(manifest_path.read_bytes(), before)
+            self.assertEqual(len(load_project(manifest_path).manifest.derived_variants), MAX_VARIANTS)
+
+
 if __name__ == "__main__":
     unittest.main()

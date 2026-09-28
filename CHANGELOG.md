@@ -104,6 +104,13 @@ Nothing here is published until the owner approves the release (see
 
 ### Fixed
 
+- **Corridor Lab project updates could replace a readable manifest with one the loader rejects.**
+  `project add-experiment` and `project add-variant` built a `ProjectManifest`
+  and wrote it without the budget checks `parse_manifest` enforces on open.
+  Past 64 experiments or 32 variants the command exited 0, then the next open
+  raised and the previous manifest was already gone. `write_project` now parses
+  the document it is about to write and leaves the existing file untouched when
+  that parse fails.
 - **Corridor Lab variant comparison dropped ancestor changes.** `variant_comparison`
   materialized each derived variant with `apply_variant`, which copies the
   project scenario and applies only that variant's own edits. A variant whose
