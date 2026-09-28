@@ -104,6 +104,10 @@ Nothing here is published until the owner approves the release (see
 
 ### Fixed
 
+- **TraceCanary file fingerprints trusted ``stat`` and then hashed the whole file.**
+  A file that was larger than the byte budget, or that grew after ``stat``
+  reported a short size, was hashed in full. The fingerprint now reads at
+  most one byte past the budget and refuses the input when that read is longer.
 - **TraceCanary contract editor accepted a duplicate-key draft and saved a file the loader refuses.**
   The editor parsed drafts with ``json.loads``, which keeps the last copy of a
   repeated key, then wrote the original text. Validation saw a legal contract
