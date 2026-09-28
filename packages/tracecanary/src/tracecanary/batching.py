@@ -26,7 +26,18 @@ from tracecanary.report import (
 
 
 def _iter_batch_files(root: Path, recursive: bool) -> Iterator[Path]:
-    yield from root.rglob("*.json") if recursive else root.glob("*.json")
+    """Enumerate JSON exports with the same rule the project folder fingerprint uses.
+
+    ``Path.glob("*.json")`` is case-insensitive on Windows and case-sensitive on
+    POSIX, so the same directory produced a different batch on each platform and
+    disagreed with ``project.fingerprint_tree``. Match the fingerprint rule
+    explicitly so the batch is the same everywhere. Directory and symlink
+    filtering stays with the caller.
+    """
+    entries = root.rglob("*") if recursive else root.iterdir()
+    for item in entries:
+        if item.name.lower().endswith(".json"):
+            yield item
 
 
 def run_batch(

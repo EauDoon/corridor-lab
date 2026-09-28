@@ -11,8 +11,11 @@ from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
+from tracecanary.batching import _iter_batch_files
 from tracecanary.canonical import InputError, load_json
-from tracecanary.cli import EXIT_PASS, EXIT_UNRESOLVED, main
+from tracecanary.cli import EXIT_PASS, EXIT_UNRESOLVED, _run_batch, main
+from tracecanary.contract import parse_contract
+from tracecanary.fixture import bundle
 
 
 class HostileInputTests(unittest.TestCase):
@@ -314,3 +317,29 @@ class HostileInputTests(unittest.TestCase):
         self.assertEqual(status, EXIT_PASS)
         self.assertIn('"status":"pass"', output.getvalue())
         self.assertNotIn(marker, output.getvalue() + error.getvalue())
+
+    def test_batch_file_selection_is_the_same_on_every_platform(self) -> None:
+        """A capitalised .JSON name must select the same batch everywhere.
+
+        Path.glob("*.json") is case-insensitive on Windows and case-sensitive on
+        POSIX, so the same directory produced a different batch per platform and
+        disagreed with project.fingerprint_tree, which already used an explicit
+        case-insensitive suffix test. Patching Path.glob to a stand-in for a
+        case-sensitive filesystem makes the platform-dependent selection fail
+        here on every host, not only on POSIX.
+        """
+        fixtures = bundle()
+        contract = parse_contract(fixtures["contract.json"])
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "safe.json").write_text(json.dumps(fixtures["safe-export.json"]), encoding="utf-8")
+            (root / "Extra.JSON").write_text(json.dumps(fixtures["safe-export.json"]), encoding="utf-8")
+            fingerprinted = {item.name for item in root.iterdir() if item.name.lower().endswith(".json")}
+            self.assertEqual(fingerprinted, {"safe.json", "Extra.JSON"})
+            with patch.object(Path, "glob", side_effect=AssertionError("platform-dependent glob")):
+                selected = {item.name for item in _iter_batch_files(root, False)}
+            # the batch and the folder fingerprint must agree on the same rule
+            self.assertEqual(selected, fingerprinted)
+            report = _run_batch(contract, root, False, True, None)
+            self.assertEqual(len(report["items"]), 2)
+            self.assertEqual(sorted(item["path"] for item in report["items"]), ["Extra.JSON", "safe.json"])
