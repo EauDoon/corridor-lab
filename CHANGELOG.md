@@ -104,6 +104,11 @@ Nothing here is published until the owner approves the release (see
 
 ### Fixed
 
+- **TraceCanary contract review said pass for a forbidden path that skipped an array index.**
+  `spans`, `attributes`, and the other repeated OTLP fields are arrays, so the
+  checker only ever sees an index in the next segment. A prefix such as
+  `.../spans/attributes/...` never reaches a scalar, and review treated it as
+  clean. Those prefixes are now malformed, the same way an empty segment is.
 - **TraceCanary campaign population gate aborted the run when the first candidate could not be read.**
   Each candidate is already recorded as unresolved when its file is missing or
   invalid, and the rest of the campaign continues. The population gate then

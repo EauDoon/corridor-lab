@@ -26,6 +26,10 @@ from tracecanary.report import Report, Status, build_report, ensure_object_value
 REVIEW_VERSION = "tracecanary.contract-review/v1"
 MAX_PATH_SEGMENTS = 32
 _SEGMENT = re.compile(r"(?:\*|[^*/]+)")
+# These JSON keys are arrays in the supported OTLP shape. The checker records
+# an index there, so a literal next segment can never reach a scalar.
+_ARRAY_FIELDS = {"resourceSpans", "scopeSpans", "spans", "attributes", "events", "links", "values"}
+_ARRAY_STEP = re.compile(r"\*|0|[1-9][0-9]*")
 
 
 def empty_template() -> dict[str, Any]:
@@ -158,4 +162,7 @@ def _path_prefix_problem(prefix: Any) -> str | None:
     for segment in segments:
         if segment != "*" and ("/" in segment or "*" in segment):
             return "only whole segments may be '*'; partial wildcards can never match"
+    for index, segment in enumerate(segments[:-1]):
+        if segment in _ARRAY_FIELDS and _ARRAY_STEP.fullmatch(segments[index + 1]) is None:
+            return "an array field must be followed by '*' or an index; a literal next segment can never match a scalar"
     return None
