@@ -28,6 +28,15 @@ from helpers import route, scenario
 
 
 class ScenarioTests(unittest.TestCase):
+    def test_unpaired_unicode_surrogates_fail_closed(self):
+        with self.assertRaisesRegex(InputError, "Unicode scalar"):
+            parse_json_text('{"description":"\\ud800"}')
+        with self.assertRaisesRegex(InputError, "Unicode scalar"):
+            load_json_bytes = b'{"\\udfff":"value"}'
+            from corridor_lab.canonical import parse_json_bytes
+            parse_json_bytes(load_json_bytes)
+        self.assertEqual(parse_json_text('{"description":"\\ud83d\\ude00"}'), {"description": "\U0001f600"})
+
     def test_batch_rejects_a_scenario_swapped_after_discovery(self):
         import corridor_lab.cli as cli_module
 
