@@ -150,12 +150,23 @@ def run_campaign(
         statuses.append(candidate_status)
 
     if population_scope is not None and population_minimum is not None and candidates:
-        gate = population_gate(contract, _load_payload(candidates[0][1], contract), population_scope, population_minimum)
-        phases["population_gate"] = _phase(gate["status"], gate, detail={
-            "scope": population_scope, "minimum": population_minimum,
-            "meaning": "evaluated against the named candidate; population coverage across directories belongs to the batch phase",
-        })
-        statuses.append(gate["status"])
+        try:
+            gate_payload = _load_payload(candidates[0][1], contract)
+        except (InputError, ValueError, OtlpError):
+            # The candidate phase already recorded this file as unresolved.
+            # Raising here used to skip the gate result and every later phase.
+            phases["population_gate"] = {
+                "status": "unresolved",
+                "meaning": "the first candidate could not be read, so the population gate was not evaluated",
+            }
+            statuses.append("unresolved")
+        else:
+            gate = population_gate(contract, gate_payload, population_scope, population_minimum)
+            phases["population_gate"] = _phase(gate["status"], gate, detail={
+                "scope": population_scope, "minimum": population_minimum,
+                "meaning": "evaluated against the named candidate; population coverage across directories belongs to the batch phase",
+            })
+            statuses.append(gate["status"])
 
     if batch is not None:
         batch_report = run_batch(contract, batch, batch_recursive, batch_include_paths, None,

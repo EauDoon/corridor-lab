@@ -104,6 +104,13 @@ Nothing here is published until the owner approves the release (see
 
 ### Fixed
 
+- **TraceCanary campaign population gate aborted the run when the first candidate could not be read.**
+  Each candidate is already recorded as unresolved when its file is missing or
+  invalid, and the rest of the campaign continues. The population gate then
+  loaded `candidates[0]` again outside that handler, so a missing first file
+  raised and the gate, the later candidates' population result, and any batch
+  phase were never reported. The gate now records unresolved for that candidate
+  and the campaign finishes.
 - **TraceCanary recursive project batches ignored nested exports.** Saving
   `--batch-recursive` stored the flag, but the project copy and the SHA-256
   fingerprint only walked the top of the directory. Nested JSON was dropped on
