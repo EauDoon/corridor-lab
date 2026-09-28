@@ -104,6 +104,17 @@ Nothing here is published until the owner approves the release (see
 
 ### Fixed
 
+- **TraceCanary batch file selection depended on the platform's filesystem.**
+  `_iter_batch_files` delegated to `Path.glob("*.json")`, which pathlib compiles
+  case-insensitively on Windows and case-sensitively on POSIX, so the same
+  declared batch directory produced a different batch on each platform. It also
+  disagreed with `project.fingerprint_tree`, which already used an explicit
+  case-insensitive suffix test: a saved project's batch directory could contain
+  a `.JSON` export that `project validate` fingerprinted but `batch --input-dir`
+  ignored. Selection now uses the same explicit suffix rule as the fingerprint,
+  and the rule is documented in the README. On Windows no result changes; on
+  POSIX a capitalised `.JSON` export is now included, which is what a Windows run
+  of the same directory already reported.
 - **TraceCanary campaign evidence documents reported a copied tool version.**
   `TraceCanaryController.save_campaign_evidence` wrote
   `{"name": "tracecanary", "version": "0.2.0"}` as a literal in the controller,
