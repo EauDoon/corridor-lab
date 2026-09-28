@@ -19,7 +19,9 @@ def _safe_csv_cell(value: object) -> object:
     if not isinstance(value, str) or _PLAIN_NUMBER.match(value):
         return value
     for character in value:
-        if character in "=+-@\t\r":
+        # A leading C0 control or DEL is skipped by some spreadsheets, which
+        # then treat the following "=+-@" as a formula. Quote those cells too.
+        if character in "=+-@\t\r" or ord(character) < 32 or ord(character) == 127:
             return "'" + value
         if character.isspace():
             continue

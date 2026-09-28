@@ -104,6 +104,11 @@ Nothing here is published until the owner approves the release (see
 
 ### Fixed
 
+- **Corridor Lab CSV formula guard ignored a leading control character.**
+  A route label such as a NUL followed by ``=1+1`` was written as a raw cell.
+  Spreadsheet software that skips the control then evaluates the rest as a
+  formula. Leading C0 controls and DEL are now quoted the same way as ``=``.
+
 - **TraceCanary file fingerprints trusted ``stat`` and then hashed the whole file.**
   A file that was larger than the byte budget, or that grew after ``stat``
   reported a short size, was hashed in full. The fingerprint now reads at
