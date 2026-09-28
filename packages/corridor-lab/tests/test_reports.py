@@ -95,6 +95,20 @@ class ReportTests(unittest.TestCase):
             with self.subTest(value=number):
                 self.assertEqual(_safe_csv_cell(number), number)
 
+    def test_csv_formula_guard_prefixes_a_leading_control_character(self):
+        report = {
+            "report_version": "corridor-lab.analysis/v1",
+            "analysis": "guardrail-headroom",
+            "columns": ["route_id", "headroom"],
+            "rows": [{"route_id": "\x00=1+1", "headroom": "-0.04"}],
+        }
+        rendered = render_report(report, "csv")
+        self.assertIn("'\x00=1+1", rendered)
+        self.assertIn(",-0.04\n", rendered)
+        for hostile in ("\x00=1+1", "\x08=cmd", "\x1b=HYPERLINK(1)"):
+            with self.subTest(value=repr(hostile)):
+                self.assertEqual(_safe_csv_cell(hostile), "'" + hostile)
+
     def test_batch_markdown_includes_requested_paths(self):
         report = {
             "report_version": "corridor-lab.batch/v1",
