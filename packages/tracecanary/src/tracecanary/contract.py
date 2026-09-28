@@ -102,6 +102,18 @@ def parse_contract(raw: Any) -> Contract:
     )
 
 
+def _reject_line_breaks(value: str, message: str) -> None:
+    """Reject newlines in text that is copied into every report.
+
+    A canary value of a single newline is a substring of every rendering,
+    so the protected-value check fails closed on a clean trace. Other
+    controls, such as a unit separator inside a longer sentinel, stay
+    legal: batch output must still fail closed without echoing them.
+    """
+    if "\n" in value or "\r" in value:
+        raise ContractError(message)
+
+
 def _parse_canaries(value: Any) -> tuple[Canary, ...]:
     if not isinstance(value, list) or not value:
         raise ContractError("canaries must be a non-empty list")
@@ -114,6 +126,8 @@ def _parse_canaries(value: Any) -> tuple[Canary, ...]:
         label, category, canary_value = item["label"], item["category"], item["value"]
         if not all(isinstance(part, str) and part for part in (label, category, canary_value)):
             raise ContractError("canary label, category and value must be non-empty strings")
+        for part in (label, category, canary_value):
+            _reject_line_breaks(part, "canary label, category and value must not contain a newline")
         if label in labels or canary_value in values:
             raise ContractError("canary labels and values must be unique")
         labels.add(label)
@@ -137,6 +151,7 @@ def _parse_retained(value: Any) -> tuple[RetainedField, ...]:
         if (not isinstance(scope, str) or scope not in {"resource", "scope", "span", "event", "link"}
                 or not isinstance(key, str) or not key):
             raise ContractError("retained field scope or key is invalid")
+        _reject_line_breaks(key, "retained field key must not contain a newline")
         if (scope, key) in seen:
             raise ContractError("required retained fields must be unique")
         seen.add((scope, key))
@@ -147,6 +162,8 @@ def _parse_retained(value: Any) -> tuple[RetainedField, ...]:
 def _string_list(value: Any, field: str) -> tuple[str, ...]:
     if not isinstance(value, list) or not all(isinstance(item, str) and item for item in value):
         raise ContractError(f"{field} must be a list of non-empty strings")
+    for item in value:
+        _reject_line_breaks(item, f"{field} must not contain a newline")
     if len(set(value)) != len(value):
         raise ContractError(f"{field} must not contain duplicates")
     return tuple(value)
