@@ -96,6 +96,12 @@ class TargetSearchTests(unittest.TestCase):
             target_search(many_routes, "send_amount", big_values,
                           ["expected_sender_cost_at_most=1", "expected_recipient_amount_at_least=1",
                            "probability_by_deadline_at_least=0.5", "tail_completion_time_hours_at_most=1"])
+        # 64 values * 4 routes * 2 constraints is 512 data rows. The per-route
+        # summary is part of the same report and must stay inside the budget.
+        four_routes = parse_scenario(scenario(routes=[route(f"r-{index}") for index in range(4)]))
+        with self.assertRaisesRegex(InputError, "row budget"):
+            target_search(four_routes, "send_amount", big_values,
+                          ["expected_sender_cost_at_most=1", "probability_by_deadline_at_least=0.5"])
 
 
 class RobustnessTests(unittest.TestCase):

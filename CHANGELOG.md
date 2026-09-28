@@ -104,6 +104,11 @@ Nothing here is published until the owner approves the release (see
 
 ### Fixed
 
+- **Corridor Lab target search counted the candidate grid and not its summary rows.**
+  A search of 512 data rows then appended one summary row per route and
+  returned a report past the 512-row budget. The budget check now includes
+  those summary rows.
+
 - **Corridor Lab chain diffs listed a field a descendant had restored.**
   The assumption diff accumulated every write in the chain. A child that
   put the parent's deadline back to the scenario value still appeared as a

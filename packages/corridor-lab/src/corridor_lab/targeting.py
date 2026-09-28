@@ -111,7 +111,9 @@ def target_search(scenario: Scenario, parameter: str, values: list[Decimal], con
     routes = sorted(scenario.routes, key=lambda item: item.route_id)
     if not routes:
         raise InputError("target search requires embedded routes")
-    if len(candidate_values) * len(routes) * len(parsed_constraints) > MAX_SENSITIVITY_ROWS:
+    # One summary row per route is part of the report. Counting only the
+    # candidate grid let that summary push the document past 512 rows.
+    if len(candidate_values) * len(routes) * len(parsed_constraints) + len(routes) > MAX_SENSITIVITY_ROWS:
         raise InputError("target search exceeds the row budget; reduce candidates, routes, or constraints")
 
     rows: list[dict[str, Any]] = []
