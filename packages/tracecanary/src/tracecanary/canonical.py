@@ -25,6 +25,35 @@ def _reject_constant(value: str) -> None:
     raise InputError(f"JSON constant {value} is not permitted")
 
 
+def parse_json_text(text: str, *, max_bytes: int, max_depth: int) -> Any:
+    """Parse UTF-8 JSON text with the same rejection rules as ``load_json``.
+
+    ``json.loads`` keeps the last duplicate key. A draft checked that way can
+    validate and then be saved as text the file loader refuses.
+    """
+    if not isinstance(text, str):
+        raise InputError("input must be UTF-8 JSON")
+    try:
+        raw = text.encode("utf-8")
+    except UnicodeEncodeError as exc:
+        raise InputError("input must be UTF-8 JSON") from exc
+    if len(raw) > max_bytes:
+        raise InputError(f"input exceeds the {max_bytes}-byte limit")
+    try:
+        data = json.loads(
+            text,
+            object_pairs_hook=_no_duplicates,
+            parse_constant=_reject_constant,
+        )
+    except RecursionError as exc:
+        raise InputError("input exceeds the parser nesting safety limit") from exc
+    except json.JSONDecodeError as exc:
+        raise InputError("input is not valid JSON") from exc
+    _check_depth(data, max_depth)
+    _check_unicode_scalars(data)
+    return data
+
+
 def load_json(path: Path, *, max_bytes: int, max_depth: int) -> Any:
     """Load UTF-8 JSON while rejecting duplicate keys, large files and deep trees."""
     try:
@@ -49,20 +78,10 @@ def load_json(path: Path, *, max_bytes: int, max_depth: int) -> Any:
     if len(raw) > max_bytes:
         raise InputError(f"input exceeds the {max_bytes}-byte limit")
     try:
-        data = json.loads(
-            raw.decode("utf-8"),
-            object_pairs_hook=_no_duplicates,
-            parse_constant=_reject_constant,
-        )
+        text = raw.decode("utf-8")
     except UnicodeDecodeError as exc:
         raise InputError("input must be UTF-8 JSON") from exc
-    except RecursionError as exc:
-        raise InputError("input exceeds the parser nesting safety limit") from exc
-    except json.JSONDecodeError as exc:
-        raise InputError("input is not valid JSON") from exc
-    _check_depth(data, max_depth)
-    _check_unicode_scalars(data)
-    return data
+    return parse_json_text(text, max_bytes=max_bytes, max_depth=max_depth)
 
 
 def _check_depth(value: Any, limit: int) -> None:
