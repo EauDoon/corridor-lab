@@ -421,7 +421,7 @@ def _project_compare_variants(args: argparse.Namespace) -> int:
         return 2
     base_raw, derived = _project_variant_state(loaded)
     chosen = _project_variant_arguments(args, derived)
-    report = variant_comparison(base_raw, {name: derived[name] for name in chosen}, loaded.manifest.project_id)
+    report = variant_comparison(base_raw, derived, loaded.manifest.project_id, only=chosen)
     output_format = resolve_report_format(args.format, args.output, ("json", "csv", "markdown"))
     text = render_report(report, output_format)
     if args.output is None:

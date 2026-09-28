@@ -353,23 +353,28 @@ def variant_comparison(
     base_raw: dict[str, Any],
     variants: dict[str, DerivedVariant],
     project_id: str,
+    *,
+    only: tuple[str, ...] | list[str] | None = None,
 ) -> dict[str, Any]:
     """Route performance across the declared variant set, with currencies and units explicit.
 
     Variants are declared cases, not forecasts, and no composite score is
-    computed across metrics.
+    computed across metrics. Each row materializes the variant's full base
+    chain, so a descendant keeps its ancestors' changes. ``only`` limits which
+    variants are rows; ancestors still have to be present in ``variants`` so
+    the chain can be applied.
     """
     from .scenario import parse_scenario
 
     if len(variants) > MAX_CHANGES:
         raise InputError("variant comparison exceeds the declared variant budget")
+    selected = sorted(variants) if only is None else sorted(set(only))
+    missing = [name for name in selected if name not in variants]
+    if missing:
+        raise InputError(f"no derived variant named {', '.join(missing)}")
     rows: list[dict[str, Any]] = []
-    for name in ("scenario", *sorted(variants)):
-        variant = variants.get(name)
-        if variant is None:
-            raw = base_raw
-        else:
-            raw = apply_variant(variant, base_raw)
+    for name in ("scenario", *selected):
+        raw = base_raw if name == "scenario" else apply_variant_chain(variants, name, base_raw)
         scenario = parse_scenario(raw)
         _variant_rows(name, scenario, rows)
     return {"report_version": "corridor-lab.analysis/v1", "analysis": "variant-comparison",

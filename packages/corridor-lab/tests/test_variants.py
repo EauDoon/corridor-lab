@@ -177,6 +177,24 @@ class ChainedVariantTests(unittest.TestCase):
         tight = parse_scenario(apply_variant_chain(variants, "tight", self.base))
         self.assertEqual(tight.routes[0].fixed_fee_send, __import__("decimal").Decimal("1.00"))
 
+    def test_comparison_keeps_ancestor_changes_on_a_chained_variant(self):
+        # tight moves the deadline from 3h to 1h, which drops success-by-deadline
+        # from 0.8 to 0. tight-plus-fee only changes the fee and derives from tight.
+        variants = self._variants()
+        report = variant_comparison(self.base, variants, "fictional-project")
+        chained = [
+            row for row in report["rows"]
+            if row["variant"] == "tight-plus-fee" and row["metric"] == "probability_by_deadline"
+        ]
+        self.assertEqual([row["value"] for row in chained], ["0"])
+        subset = variant_comparison(self.base, variants, "fictional-project", only=("tight-plus-fee",))
+        subset_rows = [
+            row for row in subset["rows"]
+            if row["variant"] == "tight-plus-fee" and row["metric"] == "probability_by_deadline"
+        ]
+        self.assertEqual([row["value"] for row in subset_rows], ["0"])
+        self.assertEqual({row["variant"] for row in subset["rows"]}, {"scenario", "tight-plus-fee"})
+
     def test_chain_diff_is_cumulative_with_declared_base_values(self):
         rows = chain_changes(self._variants(), "tight-plus-fee", self.base)
         by_field = {row["field"]: row for row in rows}

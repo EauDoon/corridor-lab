@@ -104,6 +104,13 @@ Nothing here is published until the owner approves the release (see
 
 ### Fixed
 
+- **Corridor Lab variant comparison dropped ancestor changes.** `variant_comparison`
+  materialized each derived variant with `apply_variant`, which copies the
+  project scenario and applies only that variant's own edits. A variant whose
+  base is another variant therefore lost every ancestor change: the assumption
+  diff and `run-variants` kept the chain, while compare reported metrics for a
+  scenario that was never declared. Comparison now materializes the same chain,
+  including when the report lists only the descendant.
 - **Corridor Lab's worked sensitivity CSV could drift into fiction.** The
   example README documents three commands and the repository checks in the
   expected output of two of them: `expected/compare.md` is asserted against the
