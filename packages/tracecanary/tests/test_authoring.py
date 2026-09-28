@@ -55,6 +55,22 @@ class AuthoringLibraryTests(unittest.TestCase):
             self.assertTrue(finding["suggestion"])
             self.assertNotIn("TCANARY", json.dumps(finding))
 
+    def test_skipped_array_index_never_matches_and_is_not_a_pass(self):
+        from tracecanary.canonical import pointer_matches
+
+        prefix = "/resourceSpans/*/scopeSpans/*/spans/attributes/*/value/stringValue"
+        leaf = ("resourceSpans", "0", "scopeSpans", "0", "spans", "0", "attributes", "0", "value", "stringValue")
+        # spans is an array, so the next segment is an index. A literal
+        # "attributes" there never reaches the scalar the prefix names.
+        self.assertFalse(pointer_matches(prefix, leaf))
+        self.assertTrue(pointer_matches(prefix.replace("/spans/attributes", "/spans/*/attributes"), leaf))
+        draft = {**self.files["contract.json"], "forbidden_path_prefixes": [prefix]}
+        report = review_contract(draft)
+        self.assertEqual(report["status"], "regression")
+        finding = report["review"]["findings"][0]
+        self.assertEqual(finding["severity"], "malformed")
+        self.assertEqual(finding["location"], "forbidden_path_prefixes[1]")
+
     def test_trailing_slash_on_a_value_leaf_is_an_empty_segment(self):
         from tracecanary.canonical import pointer_matches
 
