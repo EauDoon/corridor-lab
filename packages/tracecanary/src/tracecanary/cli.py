@@ -314,6 +314,7 @@ def _project(args: Any) -> int:
                 baseline=args.baseline,
                 candidate=args.candidate,
                 batch=args.batch_dir,
+                batch_recursive=bool(args.batch_recursive),
             )
             manifest = build_manifest(
                 directory,
@@ -372,7 +373,7 @@ def _project(args: Any) -> int:
         return EXIT_UNRESOLVED
 
 
-def _project_prepare(directory: Path, *, contract: Path, input: Path | None, baseline: Path | None, candidate: Path | None, batch: Path | None) -> dict[str, Path]:
+def _project_prepare(directory: Path, *, contract: Path, input: Path | None, baseline: Path | None, candidate: Path | None, batch: Path | None, batch_recursive: bool = False) -> dict[str, Path]:
     """Make the chosen synthetic inputs self-contained inside the project directory."""
     from tracecanary.project import _copy_project_input
 
@@ -382,13 +383,13 @@ def _project_prepare(directory: Path, *, contract: Path, input: Path | None, bas
     placed: dict[str, Path] = {}
     copied_sources: dict[Path, Path] = {}
 
-    def place(source: Path | None, *, folder: bool = False) -> Path | None:
+    def place(source: Path | None, *, folder: bool = False, recursive: bool = False) -> Path | None:
         if source is None:
             return None
         resolved_source = source.resolve()
         if resolved_source in copied_sources:
             return copied_sources[resolved_source]
-        target = _copy_project_input(project_dir, source, folder=folder)
+        target = _copy_project_input(project_dir, source, folder=folder, recursive=recursive)
         copied_sources[resolved_source] = target
         return target
 
@@ -397,7 +398,7 @@ def _project_prepare(directory: Path, *, contract: Path, input: Path | None, bas
         target = place(source)
         if target is not None:
             placed[label] = target
-    batch_target = place(batch, folder=True)
+    batch_target = place(batch, folder=True, recursive=batch_recursive)
     if batch_target is not None:
         placed["batch directory"] = batch_target
     return placed

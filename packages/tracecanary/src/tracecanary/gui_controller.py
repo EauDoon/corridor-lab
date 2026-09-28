@@ -460,13 +460,13 @@ class TraceCanaryController:
             copied: dict[Path, Path] = {}
             copied_sources: dict[Path, Path] = {}
 
-            def place(source: Path | None, *, folder: bool = False) -> Path | None:
+            def place(source: Path | None, *, folder: bool = False, recursive: bool = False) -> Path | None:
                 if source is None or not str(source).strip():
                     return None
                 resolved_source = Path(source).resolve()
                 if resolved_source in copied_sources:
                     return copied_sources[resolved_source]
-                target = _copy_project_input(project_dir, Path(source), folder=folder)
+                target = _copy_project_input(project_dir, Path(source), folder=folder, recursive=recursive)
                 copied_sources[resolved_source] = target
                 return target
 
@@ -475,7 +475,7 @@ class TraceCanaryController:
                 target = place(Path(source) if source is not None else None)
                 if target is not None:
                     placed[label] = target
-            batch_target = place(Path(batch_dir) if batch_dir is not None else None, folder=True)
+            batch_target = place(Path(batch_dir) if batch_dir is not None else None, folder=True, recursive=bool(batch_recursive))
             if batch_target is not None:
                 placed["batch directory"] = batch_target
             manifest = build_manifest(

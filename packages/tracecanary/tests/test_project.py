@@ -202,5 +202,64 @@ class ProjectCliTests(unittest.TestCase):
             self.assertEqual(main(["project", "open", str(manifest_path)]), 2)
 
 
+class RecursiveBatchProjectTests(unittest.TestCase):
+    def test_flat_recursive_fingerprint_matches_the_non_recursive_hash(self):
+        from tracecanary.contract import DEFAULT_MAX_BATCH_FILES, DEFAULT_MAX_INPUT_BYTES
+        from tracecanary.project import fingerprint_tree
+
+        with tempfile.TemporaryDirectory() as temporary:
+            batch = Path(temporary)
+            (batch / "b.json").write_text("{}", encoding="utf-8")
+            (batch / "a.JSON").write_text("{}", encoding="utf-8")
+            kwargs = {"max_files": DEFAULT_MAX_BATCH_FILES, "max_bytes": DEFAULT_MAX_INPUT_BYTES}
+            self.assertEqual(fingerprint_tree(batch, **kwargs), fingerprint_tree(batch, recursive=True, **kwargs))
+
+    def test_recursive_fingerprint_notices_a_nested_json_change(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            project = Path(temporary)
+            contract = project / "inputs" / "contract.json"
+            contract.parent.mkdir(parents=True)
+            contract.write_text(json.dumps(bundle()["contract.json"]), encoding="utf-8", newline="\n")
+            batch = project / "batch"
+            nested = batch / "nested"
+            nested.mkdir(parents=True)
+            payload = json.dumps(bundle()["safe-export.json"])
+            (batch / "top.json").write_text(payload, encoding="utf-8", newline="\n")
+            (nested / "child.json").write_text(payload, encoding="utf-8", newline="\n")
+            write_project(project, build_manifest(
+                project, project_id="nested-batch", contract=contract, batch=batch, batch_recursive=True,
+            ))
+            self.assertTrue(load_project(project).ok)
+            (nested / "child.json").write_text(payload + "\n", encoding="utf-8")
+            changed = load_project(project)
+            self.assertFalse(changed.ok)
+            self.assertTrue(any("batch directory" in problem and "changed" in problem for problem in changed.problems))
+
+    def test_recursive_create_copies_nested_json_and_not_other_files(self):
+        with tempfile.TemporaryDirectory() as temporary, redirect_stdout(StringIO()), redirect_stderr(StringIO()):
+            from tracecanary.cli import main
+
+            source = Path(temporary) / "source"
+            batch = source / "batch"
+            (batch / "nested").mkdir(parents=True)
+            files = bundle()
+            payload = json.dumps(files["safe-export.json"])
+            (source / "contract.json").write_text(json.dumps(files["contract.json"]), encoding="utf-8")
+            (batch / "top.json").write_text(payload, encoding="utf-8")
+            (batch / "nested" / "child.json").write_text(payload, encoding="utf-8")
+            (batch / "nested" / "notes.txt").write_text("not a trace", encoding="utf-8")
+            project = Path(temporary) / "investigation"
+            project.mkdir()
+            code = main(["project", "create", "--directory", str(project), "--project-id", "fictional-nested",
+                         "--contract", str(source / "contract.json"), "--batch-dir", str(batch), "--batch-recursive"])
+            self.assertEqual(code, 0)
+            copied = project / "inputs" / "batch"
+            self.assertTrue((copied / "nested" / "child.json").is_file())
+            self.assertFalse((copied / "nested" / "notes.txt").exists())
+            self.assertEqual(main(["project", "validate", str(project)]), 0)
+            (copied / "nested" / "child.json").write_text(payload + "\n", encoding="utf-8")
+            self.assertEqual(main(["project", "validate", str(project)]), 2)
+
+
 if __name__ == "__main__":
     unittest.main()

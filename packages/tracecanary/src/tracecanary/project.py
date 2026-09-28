@@ -87,17 +87,47 @@ def fingerprint_file(path: Path, *, max_bytes: int) -> str:
     return hashlib.sha256(raw).hexdigest()
 
 
-def fingerprint_tree(path: Path, *, max_files: int, max_bytes: int) -> str:
-    """Deterministically hash a bounded folder of JSON synthetic exports."""
+def _json_export(item: Path, root: Path) -> bool:
+    """Same file rule as a batch: regular file, case-insensitive ``.json`` suffix, inside ``root``."""
+    if not item.name.lower().endswith(".json"):
+        return False
+    try:
+        metadata = item.lstat()
+    except OSError as exc:
+        raise InputError(f"project input folder could not be read: {root}") from exc
+    if not stat_module.S_ISREG(metadata.st_mode):
+        return False
+    try:
+        resolved = item.resolve()
+    except OSError as exc:
+        raise InputError(f"project input folder could not be read: {root}") from exc
+    return resolved.is_relative_to(root.resolve())
+
+
+def fingerprint_tree(path: Path, *, max_files: int, max_bytes: int, recursive: bool = False) -> str:
+    """Deterministically hash a bounded folder of JSON synthetic exports.
+
+    ``recursive`` selects the same nested files ``batch --recursive`` reads.
+    A flat directory keeps the previous name-ordered hash, so a saved project
+    whose batch has no subdirectories still matches.
+    """
     files: list[tuple[str, str]] = []
-    for item in sorted(path.iterdir(), key=lambda child: child.name):
-        try:
-            metadata = item.lstat()
-        except OSError as exc:
-            raise InputError(f"project input folder could not be read: {path}") from exc
-        if not stat_module.S_ISREG(metadata.st_mode) or not item.name.lower().endswith(".json"):
-            continue
-        files.append((item.name, fingerprint_file(item, max_bytes=max_bytes)))
+    if recursive:
+        discovered = [item for item in path.rglob("*") if _json_export(item, path)]
+        discovered.sort(key=lambda item: item.relative_to(path).as_posix())
+        entries = [(item.relative_to(path).as_posix(), item) for item in discovered]
+    else:
+        entries = []
+        for item in sorted(path.iterdir(), key=lambda child: child.name):
+            try:
+                metadata = item.lstat()
+            except OSError as exc:
+                raise InputError(f"project input folder could not be read: {path}") from exc
+            if not stat_module.S_ISREG(metadata.st_mode) or not item.name.lower().endswith(".json"):
+                continue
+            entries.append((item.name, item))
+    for name, item in entries:
+        files.append((name, fingerprint_file(item, max_bytes=max_bytes)))
         if len(files) > max_files:
             raise InputError(f"project input folder exceeds the {max_files}-file fingerprint budget: {path}")
     if not files:
@@ -232,7 +262,7 @@ def load_project(path: str | Path, *, max_bytes: int = DEFAULT_MAX_INPUT_BYTES, 
     resolved: dict[str, Path] = {}
     problems: list[str] = []
 
-    def resolve(ref: InputRef, label: str, *, folder: bool = False, max_files: int = max_batch_files) -> None:
+    def resolve(ref: InputRef, label: str, *, folder: bool = False, max_files: int = max_batch_files, recursive: bool = False) -> None:
         target = project_dir / ref.path
         try:
             metadata = target.lstat()
@@ -244,7 +274,7 @@ def load_project(path: str | Path, *, max_bytes: int = DEFAULT_MAX_INPUT_BYTES, 
                 problems.append(f"{label}: {ref.path} is no longer a folder")
                 return
             try:
-                current = fingerprint_tree(target, max_files=max_files, max_bytes=max_bytes)
+                current = fingerprint_tree(target, max_files=max_files, max_bytes=max_bytes, recursive=recursive)
             except InputError as exc:
                 problems.append(f"{label}: {exc}")
                 return
@@ -270,7 +300,7 @@ def load_project(path: str | Path, *, max_bytes: int = DEFAULT_MAX_INPUT_BYTES, 
     if manifest.candidate is not None:
         resolve(manifest.candidate, "candidate")
     if manifest.batch is not None:
-        resolve(InputRef(path=manifest.batch.path, sha256=manifest.batch.sha256), "batch directory", folder=True)
+        resolve(InputRef(path=manifest.batch.path, sha256=manifest.batch.sha256), "batch directory", folder=True, recursive=manifest.batch.recursive)
     return LoadedProject(path=manifest_path, manifest=manifest, resolved=resolved, problems=tuple(problems))
 
 
@@ -312,12 +342,12 @@ def manifest_text(manifest: ProjectManifest) -> str:
     return canonical_json(manifest_document(manifest))
 
 
-def make_input_ref(project_dir: Path, source: Path, *, folder: bool = False, max_files: int = DEFAULT_MAX_BATCH_FILES, max_bytes: int = DEFAULT_MAX_INPUT_BYTES) -> InputRef:
+def make_input_ref(project_dir: Path, source: Path, *, folder: bool = False, max_files: int = DEFAULT_MAX_BATCH_FILES, max_bytes: int = DEFAULT_MAX_INPUT_BYTES, recursive: bool = False) -> InputRef:
     resolved = Path(source).resolve()
     if folder:
         if not resolved.is_dir():
             raise InputError(f"project batch directory is not a folder: {source}")
-        digest = fingerprint_tree(resolved, max_files=max_files, max_bytes=max_bytes)
+        digest = fingerprint_tree(resolved, max_files=max_files, max_bytes=max_bytes, recursive=recursive)
     else:
         if not resolved.is_file():
             raise InputError(f"project input is not a readable file: {source}")
@@ -333,7 +363,7 @@ def make_input_ref(project_dir: Path, source: Path, *, folder: bool = False, max
     return InputRef(path=relative.as_posix(), sha256=digest)
 
 
-def _copy_project_input(project_dir: Path, source: Path, *, folder: bool = False) -> Path:
+def _copy_project_input(project_dir: Path, source: Path, *, folder: bool = False, recursive: bool = False) -> Path:
     """Copy one chosen synthetic input into the project, or use it in place."""
     resolved = Path(source).resolve()
     if resolved.is_dir() and not folder:
@@ -355,14 +385,24 @@ def _copy_project_input(project_dir: Path, source: Path, *, folder: bool = False
             raise InputError(f"project batch directory is not a folder: {source}")
         target.mkdir()
         copied = 0
-        for item in sorted(resolved.iterdir(), key=lambda child: child.name):
-            try:
-                metadata = item.lstat()
-            except OSError as exc:
-                raise InputError(f"batch directory could not be read: {source}") from exc
-            if not stat_module.S_ISREG(metadata.st_mode) or not item.name.lower().endswith(".json"):
-                continue
-            shutil.copyfile(item, target / item.name)
+        if recursive:
+            selected = [item for item in resolved.rglob("*") if _json_export(item, resolved)]
+            selected.sort(key=lambda item: item.relative_to(resolved).as_posix())
+            sources = [(item, item.relative_to(resolved)) for item in selected]
+        else:
+            sources = []
+            for item in sorted(resolved.iterdir(), key=lambda child: child.name):
+                try:
+                    metadata = item.lstat()
+                except OSError as exc:
+                    raise InputError(f"batch directory could not be read: {source}") from exc
+                if not stat_module.S_ISREG(metadata.st_mode) or not item.name.lower().endswith(".json"):
+                    continue
+                sources.append((item, Path(item.name)))
+        for item, relative in sources:
+            destination = target / relative
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(item, destination)
             copied += 1
             if copied > DEFAULT_MAX_BATCH_FILES:
                 raise InputError(f"batch directory exceeds the {DEFAULT_MAX_BATCH_FILES}-file project budget: {source}")
@@ -396,7 +436,7 @@ def build_manifest(
 ) -> ProjectManifest:
     """Fingerprint the chosen inputs and assemble a validated manifest."""
     batch_ref = make_input_ref(project_dir, Path(batch), folder=True,
-                               max_files=max_batch_files, max_bytes=max_bytes) if batch is not None else None
+                               max_files=max_batch_files, max_bytes=max_bytes, recursive=batch_recursive) if batch is not None else None
     manifest = ProjectManifest(
         project_id=_identifier(project_id, "project_id"),
         description=description,
