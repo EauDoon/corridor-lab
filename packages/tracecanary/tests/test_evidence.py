@@ -8,6 +8,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from tracecanary.fixture import bundle
 from tracecanary.gui_controller import TraceCanaryController
+import tracecanary
 
 
 class TraceCanaryEvidenceTests(unittest.TestCase):
@@ -36,6 +37,7 @@ class TraceCanaryEvidenceTests(unittest.TestCase):
         self.assertEqual(saved.status, "pass")
         document = json.loads(destination.read_text(encoding="utf-8"))
         self.assertEqual(document["evidence_version"], "tracecanary.evidence/v1")
+        self.assertEqual(document["tool"], {"name": "tracecanary", "version": tracecanary.__version__})
         self.assertIn("not bundled", document["meaning"])
         self.assertEqual(document["summary"]["campaign_status"], "regression")
         text = destination.read_text(encoding="utf-8")
