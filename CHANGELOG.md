@@ -104,6 +104,12 @@ Nothing here is published until the owner approves the release (see
 
 ### Fixed
 
+- **TraceCanary contract review pointed at the wrong shadowed key.** Every other
+  review location is a 1-based rule ordinal (`required_retained_fields[1]` is
+  the first field, `forbidden_path_prefixes[1]` is the first prefix). Shadowed
+  exact keys used `list.index`, which is 0-based, so the second key was
+  reported as `forbidden_attribute_keys[1]` — the first key. The location now
+  uses the same ordinal as the other rules.
 - **Corridor Lab project updates could replace a readable manifest with one the loader rejects.**
   `project add-experiment` and `project add-variant` built a `ProjectManifest`
   and wrote it without the budget checks `parse_manifest` enforces on open.

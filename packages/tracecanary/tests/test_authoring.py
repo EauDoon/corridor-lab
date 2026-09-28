@@ -65,6 +65,17 @@ class AuthoringLibraryTests(unittest.TestCase):
         with self.assertRaisesRegex(ContractError, "JSON pointers"):
             review_contract({**self.files["contract.json"], "forbidden_path_prefixes": ["no-leading-slash"]})
 
+    def test_shadowed_key_location_uses_the_same_one_based_ordinal(self):
+        draft = {
+            **self.files["contract.json"],
+            "forbidden_attribute_keys": ["service.version", "enduser.id"],
+            "forbidden_attribute_key_prefixes": ["enduser."],
+        }
+        report = review_contract(draft)
+        locations = [finding["location"] for finding in report["review"]["findings"]]
+        self.assertIn("forbidden_attribute_keys[2]", locations)
+        self.assertNotIn("forbidden_attribute_keys[1]", locations)
+
     def test_shadowed_forbidden_key_is_reported_conservatively(self):
         draft = {
             **self.files["contract.json"],
