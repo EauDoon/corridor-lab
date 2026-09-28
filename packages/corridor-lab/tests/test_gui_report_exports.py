@@ -71,7 +71,10 @@ class GuiReportExportProtectionTests(unittest.TestCase):
             controller, scenario_path, _ = self._controller_with_files(Path(temporary))
             before = scenario_path.read_bytes()
             link = Path(temporary) / "symlinked-report.json"
-            os.symlink(scenario_path.name, link)
+            try:
+                os.symlink(scenario_path.name, link)
+            except (NotImplementedError, OSError):
+                self.skipTest("symlinks are unavailable")
             self.assertIsNone(controller.evaluate().error)
             result = controller.save_last_report(link, "json")
             self.assertIsNotNone(result.error)
