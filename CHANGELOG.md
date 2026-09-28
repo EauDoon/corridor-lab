@@ -104,6 +104,12 @@ Nothing here is published until the owner approves the release (see
 
 ### Fixed
 
+- **Corridor Lab chain diffs listed a field a descendant had restored.**
+  The assumption diff accumulated every write in the chain. A child that
+  put the parent's deadline back to the scenario value still appeared as a
+  change, with the base and variant numbers equal. Rows now keep only
+  fields whose end value differs from the declared scenario.
+
 - **Corridor Lab robustness review named every colliding scenario with the same id.**
   Derived variants keep the base ``scenario_id``, and the review ignored the
   caller label. A passing base and a failing variant were both reported as
