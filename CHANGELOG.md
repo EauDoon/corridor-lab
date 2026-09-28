@@ -104,6 +104,13 @@ Nothing here is published until the owner approves the release (see
 
 ### Fixed
 
+- **TraceCanary recursive project batches ignored nested exports.** Saving
+  `--batch-recursive` stored the flag, but the project copy and the SHA-256
+  fingerprint only walked the top of the directory. Nested JSON was dropped on
+  import, and a later edit to a nested file already inside the project left
+  `project validate` green while `campaign run` read the changed file. The copy
+  and the fingerprint now use the same nested, case-insensitive `.json` rule as
+  `batch --recursive`. A batch with no subdirectories keeps its previous hash.
 - **TraceCanary review accepted a trailing slash on a forbidden path.**
   Empty segments are rejected when they appear as `//`, but a single trailing
   slash was not. `pointer_matches` then compared that empty segment to a real
