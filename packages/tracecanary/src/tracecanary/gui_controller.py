@@ -9,6 +9,7 @@ from typing import Any
 
 import json
 
+from tracecanary import __version__
 from tracecanary.authoring import empty_template, render_review_human, review_contract, validate_draft
 from tracecanary.batching import run_batch
 from tracecanary.campaign import (
@@ -569,7 +570,7 @@ class TraceCanaryController:
             summary = campaign_summary(json.loads(result.json))
             evidence = {
                 "evidence_version": "tracecanary.evidence/v1",
-                "tool": {"name": "tracecanary", "version": "0.2.0"},
+                "tool": {"name": "tracecanary", "version": __version__},
                 "summary": summary,
                 "meaning": (
                     "Deterministic value-free evidence for a synthetic regression campaign. "

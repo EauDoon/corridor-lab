@@ -104,6 +104,19 @@ Nothing here is published until the owner approves the release (see
 
 ### Fixed
 
+- **TraceCanary campaign evidence documents reported a copied tool version.**
+  `TraceCanaryController.save_campaign_evidence` wrote
+  `{"name": "tracecanary", "version": "0.2.0"}` as a literal in the controller,
+  separate from `tracecanary.__version__` and from the `pyproject.toml` project
+  version, and `test_evidence.py` asserted only `evidence_version`, so every
+  `tracecanary.evidence/v1` document kept claiming the previous version after a
+  release bump. Meanwhile `test_metadata.py` compared the declared project
+  version against its own `"0.2.0"` literal, so the one bump that could have
+  revealed the drift failed a test that is about GUI entry points and URLs
+  instead. The controller now reads the package version, the evidence test
+  asserts it, and the metadata test compares `tracecanary.__version__` with the
+  declared project version so a legitimate bump needs no test edit. Output is
+  unchanged at the current version.
 - **Corridor Lab evidence documents reported a copied tool version.** The
   `tool.version` field in every `corridor-lab.evidence/v1` document came from a
   module-level `TOOL_VERSION = "0.2.0"` literal in `evidence.py`, separate from
