@@ -104,6 +104,13 @@ Nothing here is published until the owner approves the release (see
 
 ### Fixed
 
+- **TraceCanary review accepted a trailing slash on a forbidden path.**
+  Empty segments are rejected when they appear as `//`, but a single trailing
+  slash was not. `pointer_matches` then compared that empty segment to a real
+  key and the prefix never matched. A path that otherwise ended at
+  `stringValue` contains the segment `value`, so the separate "stops before a
+  scalar" warning did not fire either, and the review status was pass. A
+  trailing slash is now the same empty-segment malformation as `//`.
 - **TraceCanary contract review pointed at the wrong shadowed key.** Every other
   review location is a 1-based rule ordinal (`required_retained_fields[1]` is
   the first field, `forbidden_path_prefixes[1]` is the first prefix). Shadowed

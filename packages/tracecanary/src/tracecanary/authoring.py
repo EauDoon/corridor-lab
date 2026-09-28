@@ -148,7 +148,9 @@ def render_review_human(report: Report) -> str:
 def _path_prefix_problem(prefix: Any) -> str | None:
     if not isinstance(prefix, str) or not prefix.startswith("/") or not prefix.strip("/"):
         return "path prefixes must start with '/' and name at least one segment"
-    if "//" in prefix or prefix.endswith("//"):
+    # A single trailing slash is an empty segment. endswith("//") missed it,
+    # and pointer_matches then never reached the scalar the prefix named.
+    if "//" in prefix or prefix.endswith("/"):
         return "path prefixes must not contain empty segments"
     segments = prefix.strip("/").split("/")
     if len(segments) > MAX_PATH_SEGMENTS:

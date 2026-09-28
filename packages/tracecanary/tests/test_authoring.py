@@ -55,6 +55,22 @@ class AuthoringLibraryTests(unittest.TestCase):
             self.assertTrue(finding["suggestion"])
             self.assertNotIn("TCANARY", json.dumps(finding))
 
+    def test_trailing_slash_on_a_value_leaf_is_an_empty_segment(self):
+        from tracecanary.canonical import pointer_matches
+
+        prefix = "/resourceSpans/*/scopeSpans/*/spans/*/attributes/*/value/stringValue/"
+        leaf = ("resourceSpans", "0", "scopeSpans", "0", "spans", "0", "attributes", "0", "value", "stringValue")
+        # The checker matches the prefix without the slash and misses it with one,
+        # so a clean review would leave a rule that never fires.
+        self.assertTrue(pointer_matches(prefix.rstrip("/"), leaf))
+        self.assertFalse(pointer_matches(prefix, leaf))
+        draft = {**self.files["contract.json"], "forbidden_path_prefixes": [prefix]}
+        report = review_contract(draft)
+        self.assertEqual(report["status"], "regression")
+        finding = report["review"]["findings"][0]
+        self.assertEqual(finding["severity"], "malformed")
+        self.assertIn("empty", finding["message"])
+
     def test_malformed_paths_fail_with_suggestions(self):
         for prefix in ("//double//slash", "/resourceSpans/*/span*/key"):
             with self.subTest(prefix=prefix):
