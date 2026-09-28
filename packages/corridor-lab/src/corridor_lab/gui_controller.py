@@ -632,9 +632,13 @@ class CorridorGuiController:
             missing = sorted(set(names or ()) - set(self.derived_variants))
             if missing:
                 raise InputError(f"no derived variant named {', '.join(missing)}")
-            chosen = self.derived_variants if names is None else {name: self.derived_variants[name] for name in names}
             return self._success(
-                variant_comparison(self._variant_base_raw(), chosen, self.project_id_or_scenario()),
+                variant_comparison(
+                    self._variant_base_raw(),
+                    self.derived_variants,
+                    self.project_id_or_scenario(),
+                    only=None if names is None else names,
+                ),
                 routes_inputs=False,
             )
         except (InputError, ValueError, DecimalException) as exc:
