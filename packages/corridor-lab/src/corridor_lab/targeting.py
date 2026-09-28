@@ -199,7 +199,11 @@ def robustness_review(scenarios: list[Scenario], scenario_labels: list[str], con
     rows: list[dict[str, Any]] = []
     first_failure: dict[str, str] = {}
     seen_routes: set[str] = set()
+    # Derived variants keep the base scenario id. The caller label is the
+    # only name that distinguishes those cases; unique ids stay as ids.
+    ids_collide = len({scenario.scenario_id for scenario in scenarios}) != len(scenarios)
     for label, scenario in zip(scenario_labels, scenarios, strict=True):
+        scenario_name = label if ids_collide else scenario.scenario_id
         routes = sorted(scenario.routes, key=lambda item: item.route_id)
         for route in routes:
             seen_routes.add(route.route_id)
@@ -210,7 +214,7 @@ def robustness_review(scenarios: list[Scenario], scenario_labels: list[str], con
                 passed = _satisfied(constraint, observed)
                 all_pass = all_pass and passed
                 rows.append({
-                    "scenario": scenario.scenario_id,
+                    "scenario": scenario_name,
                     "route_id": route.route_id,
                     "constraint": constraint["name"],
                     "observed": decimal_text(observed),
@@ -219,7 +223,7 @@ def robustness_review(scenarios: list[Scenario], scenario_labels: list[str], con
                     "unit": constraint["unit"],
                 })
             if not all_pass and route.route_id not in first_failure:
-                first_failure[route.route_id] = scenario.scenario_id
+                first_failure[route.route_id] = scenario_name
     for route_id in sorted(seen_routes):
         rows.append({
             "scenario": first_failure.get(route_id, "none in the supplied order"),

@@ -114,6 +114,25 @@ class RobustnessTests(unittest.TestCase):
         self.assertEqual(first[0]["route_id"], "fictional-route-one")
         self.assertIn("declared cases, not forecasts", report["scope"])
 
+    def test_colliding_scenario_ids_are_named_by_the_caller_label(self):
+        base = scenario(routes=[route("fictional-route-one")])
+        worse = scenario(routes=[route("fictional-route-one")])
+        worse["transaction"]["deadline_hours"] = "0.5"
+        report = robustness_review(
+            [parse_scenario(base), parse_scenario(worse)],
+            ["base-case", "tight"],
+            ["probability_by_deadline_at_least=0.5"],
+        )
+        detail = {
+            row["scenario"]
+            for row in report["rows"]
+            if row["constraint"] == "probability_by_deadline_at_least"
+        }
+        self.assertEqual(detail, {"base-case", "tight"})
+        first = [row for row in report["rows"] if row["constraint"] == "first_failing_scenario"]
+        self.assertEqual(first[0]["scenario"], "tight")
+        self.assertFalse(first[0]["satisfied"])
+
     def test_robust_scenario_reports_no_failure(self):
         base = scenario(routes=[route("fictional-route-one")])
         variant = scenario(routes=[route("fictional-route-one")])
