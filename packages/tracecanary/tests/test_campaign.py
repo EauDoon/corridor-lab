@@ -89,6 +89,22 @@ class CampaignEngineTests(unittest.TestCase):
         self.assertIn("coverage_summary", batch_phase)
         self.assertNotIn("TCANARY", json.dumps(campaign))
 
+    def test_population_gate_does_not_abort_when_the_first_candidate_cannot_be_read(self):
+        campaign = run_campaign(
+            self.contract,
+            candidates=[
+                ("missing.json", self.root / "does-not-exist.json"),
+                ("leak.json", self.root / "leaked-prompt.json"),
+            ],
+            population_scope="span",
+            population_minimum=1,
+        )
+        items = campaign["phases"]["candidates"]["items"]
+        self.assertEqual([item["status"] for item in items], ["unresolved", "regression"])
+        self.assertEqual(campaign["phases"]["population_gate"]["status"], "unresolved")
+        self.assertEqual(campaign["status"], "unresolved")
+        self.assertNotIn("TCANARY", json.dumps(campaign))
+
     def test_human_render_is_value_free_and_labeled(self):
         campaign = run_campaign(self.contract, control_payload=self.files["positive-control.json"])
         human = render_campaign_human(campaign)
