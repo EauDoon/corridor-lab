@@ -195,6 +195,17 @@ class ChainedVariantTests(unittest.TestCase):
         self.assertEqual([row["value"] for row in subset_rows], ["0"])
         self.assertEqual({row["variant"] for row in subset["rows"]}, {"scenario", "tight-plus-fee"})
 
+    def test_chain_diff_omits_a_field_the_descendant_restores(self):
+        # The parent moves the deadline, and the child puts it back. The end
+        # state matches the scenario, so the diff must not call that a change.
+        parent = parse_derived_variant("parent", {"base": "scenario", "changes": {"transaction": {"deadline_hours": "1"}}})
+        child = parse_derived_variant("child", {"base": "parent", "changes": {"transaction": {"deadline_hours": "3"}, "routes": {"fictional-route-one": {"fixed_fee_send": "5.00"}}}})
+        rows = chain_changes({"parent": parent, "child": child}, "child", self.base)
+        by_field = {row["field"]: row for row in rows}
+        self.assertNotIn("deadline_hours", by_field)
+        self.assertEqual(by_field["fixed_fee_send"]["base"], "1")
+        self.assertEqual(by_field["fixed_fee_send"]["variant"], "5.00")
+
     def test_chain_diff_is_cumulative_with_declared_base_values(self):
         rows = chain_changes(self._variants(), "tight-plus-fee", self.base)
         by_field = {row["field"]: row for row in rows}

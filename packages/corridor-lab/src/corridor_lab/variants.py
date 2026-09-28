@@ -216,6 +216,16 @@ def apply_variant_chain(variants: dict[str, DerivedVariant], name: str, base_raw
     return raw
 
 
+def _net_change(base_text: str, variant_text: str) -> bool:
+    """True when the chain's end value is not the declared base value."""
+    if not base_text:
+        return True
+    try:
+        return Decimal(base_text) != Decimal(variant_text)
+    except DecimalException:
+        return base_text != variant_text
+
+
 def chain_changes(variants: dict[str, DerivedVariant], name: str, base_raw: dict[str, Any]) -> list[dict[str, str]]:
     """The cumulative assumption diff of a variant chain against the base.
 
@@ -240,9 +250,12 @@ def chain_changes(variants: dict[str, DerivedVariant], name: str, base_raw: dict
     transaction = base_raw.get("transaction", {})
     for field in sorted(cumulative, key=TRANSACTION_CHANGE_FIELDS.index):
         base_value = transaction.get(field)
+        base_text = decimal_text(Decimal(str(base_value))) if base_value is not None else ""
+        if not _net_change(base_text, cumulative[field]):
+            continue
         rows.append({
             "section": "transaction", "field": field,
-            "base": decimal_text(Decimal(str(base_value))) if base_value is not None else "",
+            "base": base_text,
             "variant": cumulative[field],
         })
     routes_raw = base_raw.get("routes", [])
@@ -256,11 +269,15 @@ def chain_changes(variants: dict[str, DerivedVariant], name: str, base_raw: dict
             group, name_part = _split_route_field(field)
             source = route.get(group, {}) if group else route
             base_value = source.get(name_part) if isinstance(source, dict) else None
+            base_text = decimal_text(Decimal(str(base_value))) if base_value is not None else ""
+            variant_text = cumulative_routes[route_id][field]
+            if not _net_change(base_text, variant_text):
+                continue
             rows.append({
                 "section": f"route {route_id}",
                 "field": field,
-                "base": decimal_text(Decimal(str(base_value))) if base_value is not None else "",
-                "variant": cumulative_routes[route_id][field],
+                "base": base_text,
+                "variant": variant_text,
             })
     return rows
 
