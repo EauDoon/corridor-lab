@@ -104,6 +104,13 @@ Nothing here is published until the owner approves the release (see
 
 ### Fixed
 
+- **Corridor Lab robustness review named every colliding scenario with the same id.**
+  Derived variants keep the base ``scenario_id``, and the review ignored the
+  caller label. A passing base and a failing variant were both reported as
+  the base scenario, including the first failing case. When scenario ids
+  collide, rows now use the label the caller supplied. Unique ids are
+  unchanged.
+
 - **TraceCanary accepted a newline as a canary value, then failed every report.**
   A canary value of a single newline is contained in every human and JSON
   rendering, so the protected-value check raised ``UnsafeReportError`` even
