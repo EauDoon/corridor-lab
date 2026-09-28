@@ -104,6 +104,13 @@ Nothing here is published until the owner approves the release (see
 
 ### Fixed
 
+- **TraceCanary accepted a newline as a canary value, then failed every report.**
+  A canary value of a single newline is contained in every human and JSON
+  rendering, so the protected-value check raised ``UnsafeReportError`` even
+  when the trace was clean. Canary text, forbidden strings, and retained
+  keys now reject newlines. A unit separator inside a longer sentinel is
+  unchanged, so a path collision still fails closed without echoing it.
+
 - **Corridor Lab accepted JSON lone surrogates that cannot be written as UTF-8.**
   ``json.loads`` turns ``\\uD800`` into a lone surrogate. ``validate`` then
   reported the scenario as valid, and a later report write failed while

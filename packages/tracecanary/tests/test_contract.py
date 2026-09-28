@@ -24,6 +24,16 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class ContractTests(unittest.TestCase):
+    def test_newline_canary_value_is_rejected_before_it_matches_every_report(self) -> None:
+        data = json.loads((ROOT / "fixtures" / "v1" / "contract.json").read_text(encoding="utf-8"))
+        data["canaries"][0]["value"] = "\n"
+        with self.assertRaisesRegex(ContractError, "newline"):
+            parse_contract(data)
+        data = json.loads((ROOT / "fixtures" / "v1" / "contract.json").read_text(encoding="utf-8"))
+        data["forbidden_attribute_keys"] = ["gen_ai.prompt\n"]
+        with self.assertRaisesRegex(ContractError, "newline"):
+            parse_contract(data)
+
     def test_non_string_retained_scopes_fail_without_tracebacks(self) -> None:
         fixture = ROOT / "fixtures" / "v1" / "contract.json"
         for scope in ({}, [], None, True, 1):
