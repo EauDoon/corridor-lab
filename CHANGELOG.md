@@ -104,6 +104,16 @@ Nothing here is published until the owner approves the release (see
 
 ### Fixed
 
+- **Corridor Lab evidence documents reported a copied tool version.** The
+  `tool.version` field in every `corridor-lab.evidence/v1` document came from a
+  module-level `TOOL_VERSION = "0.2.0"` literal in `evidence.py`, separate from
+  `corridor_lab.__version__` and from the `pyproject.toml` project version, and
+  nothing compared them. A release bump therefore left every evidence document
+  claiming the previous version with no test failing, in a document whose stated
+  purpose is to let another operator know what was tested. `evidence.py` now
+  reads the package version, and a test holds `__version__`, the declared
+  project version, and the emitted document in agreement. Output is unchanged at
+  the current version.
 - **TraceCanary project batch fingerprinting ignored the caller's budget and
   hashed the batch directory twice.** `build_manifest` called
   `make_input_ref(folder=True)` with the module default of 256 files while a

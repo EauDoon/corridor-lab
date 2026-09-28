@@ -1,12 +1,17 @@
 import json
 import tempfile
+import tomllib
 import unittest
 from contextlib import redirect_stderr, redirect_stdout
 from io import StringIO
 from pathlib import Path
 
+import corridor_lab
 from corridor_lab.cli import main
 from helpers import route, scenario
+
+PACKAGE = Path(__file__).resolve().parents[1]
+FIXTURE = PACKAGE / "examples" / "fictional-corridor" / "embedded-scenario.json"
 
 
 class EvidenceCliTests(unittest.TestCase):
@@ -53,6 +58,16 @@ class EvidenceCliTests(unittest.TestCase):
                                    "probability_by_deadline_at_least=0.8", "--evidence", str(root / "rb.json")]), 0)
             robust_document = json.loads((root / "rb.json").read_text(encoding="utf-8"))
             self.assertEqual(robust_document["analysis"], "robustness-review")
+
+    def test_evidence_reports_the_declared_package_version(self):
+        project = tomllib.loads((PACKAGE / "pyproject.toml").read_text(encoding="utf-8"))["project"]
+        self.assertEqual(corridor_lab.__version__, project["version"])
+        with tempfile.TemporaryDirectory() as temporary, redirect_stdout(StringIO()), redirect_stderr(StringIO()):
+            root = Path(temporary)
+            evidence = root / "evidence.json"
+            self.assertEqual(main(["evaluate", str(FIXTURE), "--evidence", str(evidence)]), 0)
+            document = json.loads(evidence.read_text(encoding="utf-8"))
+            self.assertEqual(document["tool"], {"name": "corridor-lab", "version": corridor_lab.__version__})
 
 
 if __name__ == "__main__":

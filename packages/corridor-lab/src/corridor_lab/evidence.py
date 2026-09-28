@@ -15,10 +15,10 @@ import json
 from pathlib import Path
 from typing import Any
 
+from . import __version__
 from .canonical import InputError, atomic_write_text
 
 EVIDENCE_VERSION = "corridor-lab.evidence/v1"
-TOOL_VERSION = "0.2.0"
 MAX_EVIDENCE_BYTES = 5_000_000
 
 STANDING_LIMITATIONS = (
@@ -59,7 +59,7 @@ def build_evidence(
         raise InputError("evidence requires a rendered corridor-lab report")
     document: dict[str, Any] = {
         "evidence_version": EVIDENCE_VERSION,
-        "tool": {"name": "corridor-lab", "version": TOOL_VERSION},
+        "tool": {"name": "corridor-lab", "version": __version__},
         "analysis": analysis_kind(report),
         "report": report,
         "inputs": {
