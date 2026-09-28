@@ -78,6 +78,12 @@ class VariantLibraryTests(unittest.TestCase):
 
     def test_argument_parser_builds_the_same_variant(self):
         transaction, routes = parse_variant_changes_argument("transaction.deadline_hours=2;route.fictional-route-one.fixed_fee_send=2.00")
+        dotted_transaction, dotted_routes = parse_variant_changes_argument(
+            "route.my.route.fx_rate=1.25;route.my.route.liquidity.holding_days=9"
+        )
+        self.assertEqual(dotted_transaction, {})
+        self.assertEqual(dotted_routes["my.route"]["fx_rate"], "1.25")
+        self.assertEqual(dotted_routes["my.route"]["liquidity.holding_days"], "9")
         variant = parse_derived_variant("mixed", {"base": "scenario", "changes": {"transaction": transaction, "routes": routes}})
         self.assertEqual(variant.transaction, {"deadline_hours": "2"})
         self.assertEqual(variant.routes, {"fictional-route-one": {"fixed_fee_send": "2.00"}})

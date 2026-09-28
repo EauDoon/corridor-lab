@@ -104,6 +104,12 @@ Nothing here is published until the owner approves the release (see
 
 ### Fixed
 
+- **Corridor Lab variant changes could not name a route id that contains a dot.**
+  ``route.ROUTE_ID.FIELD`` split on the first dot, so ``my.route`` was read
+  as route id ``my`` and a field of ``route.fx_rate``. Route ids may contain
+  dots. The field is now the longest known field suffix, and the rest is
+  the route id.
+
 - **Corridor Lab target search counted the candidate grid and not its summary rows.**
   A search of 512 data rows then appended one summary row per route and
   returned a report past the 512-row budget. The budget check now includes
