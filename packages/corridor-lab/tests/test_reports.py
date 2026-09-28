@@ -1,4 +1,5 @@
 import unittest
+from decimal import Decimal
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest.mock import patch
@@ -57,6 +58,20 @@ class ReportTests(unittest.TestCase):
         report = compare_routes(parsed.transaction, _load_routes_argument(str(routes_folder)), parsed.objective, parsed.scenario_id)
         expected = (root / "examples" / "fictional-corridor" / "expected" / "compare.md").read_text(encoding="utf-8")
         self.assertEqual(render_report(report, "markdown"), expected)
+
+    def test_worked_sensitivity_csv_fixture_matches_renderer(self):
+        root = Path(__file__).resolve().parents[1]
+        example = root / "examples" / "fictional-corridor"
+        from corridor_lab.scenario import load_scenario
+        from corridor_lab.sensitivity import run_sensitivity
+
+        parsed = load_scenario(example / "embedded-scenario.json")
+        report = run_sensitivity(
+            parsed, "fx_spread_bps",
+            [Decimal("10"), Decimal("25"), Decimal("50"), Decimal("100")],
+        )
+        expected = (example / "expected" / "sensitivity.csv").read_text(encoding="utf-8")
+        self.assertEqual(render_report(report, "csv"), expected)
 
     def test_csv_formula_text_is_prefixed_with_an_apostrophe(self):
         data = route("formula-route")

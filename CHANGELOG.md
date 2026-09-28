@@ -104,6 +104,15 @@ Nothing here is published until the owner approves the release (see
 
 ### Fixed
 
+- **Corridor Lab's worked sensitivity CSV could drift into fiction.** The
+  example README documents three commands and the repository checks in the
+  expected output of two of them: `expected/compare.md` is asserted against the
+  renderer by `test_worked_markdown_fixture_matches_renderer`, while
+  `expected/sensitivity.csv` was read by nothing. Any change to the sensitivity
+  model or the CSV renderer, or any hand edit of the fixture, left the file
+  describing numbers the tool no longer produces and the suite green. A test now
+  regenerates the CSV from the documented command and compares it byte for byte.
+  The fixture is unchanged.
 - **TraceCanary batch file selection depended on the platform's filesystem.**
   `_iter_batch_files` delegated to `Path.glob("*.json")`, which pathlib compiles
   case-insensitively on Windows and case-sensitively on POSIX, so the same
