@@ -30,10 +30,10 @@ jobs:
         os: [ubuntu-latest, windows-latest, macos-latest]
         python-version: ["3.11", "3.12"]
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
         with:
           persist-credentials: false
-      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
         with:
           python-version: ${{ matrix.python-version }}
       - name: Test
@@ -75,8 +75,9 @@ jobs:
           } finally {
             Pop-Location
           }
-          $wheel = Get-ChildItem -Path $wheelDir -Filter "corridor_lab-0.2.0-*.whl" | Select-Object -First 1
-          if ($null -eq $wheel) { throw "Expected local Corridor Lab wheel was not built." }
+          $wheels = @(Get-ChildItem -LiteralPath $wheelDir -Filter "corridor_lab-*.whl")
+          if ($wheels.Count -ne 1) { throw "Expected exactly one local Corridor Lab wheel." }
+          $wheel = $wheels[0]
           Add-Content -Path $env:GITHUB_ENV -Value "CORRIDOR_LAB_WHEEL=$($wheel.FullName)"
       - name: Verify exact wheel in an isolated environment outside checkout
         shell: pwsh
@@ -92,6 +93,7 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           Copy-Item examples/fictional-corridor/scenario.json (Join-Path $outsideRoot "scenario.json")
           $env:PYTHONPATH = ""
+          $journey = (Resolve-Path tests/installed_journey.py).Path
           Push-Location $outsideRoot
           try {
             $cliPath = if ($isWindowsRunner) { Join-Path $scriptRoot "corridorlab.exe" } else { Join-Path $scriptRoot "corridorlab" }
@@ -105,6 +107,8 @@ jobs:
               if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
             }
             & $cliPath transaction-grid analysis-scenario.json --parameter-a deadline_hours --values-a 1,24 --parameter-b volume_per_period --values-b 1,100 --format json
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+            & $pythonPath -I $journey
             if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
             & $guiPath --smoke-test
             if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
