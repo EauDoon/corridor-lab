@@ -666,6 +666,8 @@ def _protect_report_inputs(args: argparse.Namespace) -> None:
         return
     target = Path(_require_cli_text(args.output, "--output"))
     inputs: list[Path] = []
+    if getattr(args, "evidence", None):
+        inputs.append(Path(args.evidence))
     scanned: list[Path] = []
     for name in ("scenario", "baseline", "routes", "input_dir"):
         raw = getattr(args, name, None)

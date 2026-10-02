@@ -493,10 +493,12 @@ def _campaign(args: Any) -> int:
                 summary_text = render_json(summary)
                 sources = [contract_path, control, baseline, batch, *(path for _, path in candidates)]
                 protect_inputs(summary_path, [path for path in sources if path is not None], loaded.path.parent)
+                protect_inputs(summary_path, [], batch)
                 write_report(summary_path, summary_text)
                 print(f"Value-free campaign summary saved to {summary_path}")
             return _status_exit(campaign["status"])
         if command == "compare":
+            protect_inputs(args.output, [args.baseline_summary, args.candidate_summary])
             baseline_summary = load_json(args.baseline_summary, max_bytes=MAX_CAMPAIGN_SUMMARY_BYTES, max_depth=32)
             candidate_summary = load_json(args.candidate_summary, max_bytes=MAX_CAMPAIGN_SUMMARY_BYTES, max_depth=32)
             comparison = compare_summaries(baseline_summary, candidate_summary)

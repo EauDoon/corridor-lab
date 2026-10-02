@@ -15,6 +15,16 @@ FIXTURE = PACKAGE / "examples" / "fictional-corridor" / "embedded-scenario.json"
 
 
 class EvidenceCliTests(unittest.TestCase):
+    def test_report_and_evidence_cannot_share_a_destination(self):
+        with tempfile.TemporaryDirectory() as temporary, redirect_stdout(StringIO()), redirect_stderr(StringIO()):
+            output = Path(temporary) / "report.json"
+            args = ["evaluate", str(FIXTURE), "--output", str(output), "--evidence", str(output)]
+            self.assertEqual(main(args), 2)
+            self.assertFalse(output.exists())
+            output.write_text("previous report", encoding="utf-8")
+            self.assertEqual(main(args), 2)
+            self.assertEqual(output.read_text(encoding="utf-8"), "previous report")
+
     def test_evidence_accompanies_a_report_and_explains_itself(self):
         with tempfile.TemporaryDirectory() as temporary, redirect_stdout(StringIO()), redirect_stderr(StringIO()):
             root = Path(temporary)
