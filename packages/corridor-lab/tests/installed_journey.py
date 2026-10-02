@@ -39,6 +39,9 @@ def main():
         evidence = root / "evidence.json"
         run("evaluate", scenario, "--evidence", evidence)
         assert json.loads(evidence.read_text(encoding="utf-8"))["tool"]["version"] == corridor_lab.__version__
+        saved_evidence = evidence.read_bytes()
+        run("evaluate", scenario, "--output", evidence, "--evidence", evidence, expected=2)
+        assert evidence.read_bytes() == saved_evidence
         run("evaluate", scenario, "--output", scenario, expected=2)
         assert scenario.read_bytes() == original
         scenario.write_bytes(original + b"\n")

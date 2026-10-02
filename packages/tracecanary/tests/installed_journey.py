@@ -48,6 +48,16 @@ def main():
             summaries.append(summary)
         comparison = json.loads(run("campaign", "compare", *summaries[:2], "--format", "json"))
         assert comparison["campaign_status_change"] == ["pass", "regression"]
+        for summary in summaries[:2]:
+            original = summary.read_bytes()
+            run("campaign", "compare", *summaries[:2], "--output", summary, expected=2)
+            assert summary.read_bytes() == original
+        batch = root / "batch"
+        batch.mkdir()
+        (batch / "safe.json").write_bytes((fixtures / "safe-export.json").read_bytes())
+        run("campaign", "run", root / "moved-0", "--input-dir", batch,
+            "--save-summary", batch / "summary.json", expected=2)
+        assert not (batch / "summary.json").exists()
         controller = TraceCanaryController()
         campaign = controller.run_campaign_selections(contract_path=fixtures / "contract.json",
             input_path=fixtures / "leaked-prompt.json", baseline_path=fixtures / "safe-export.json", batch_path=None)
