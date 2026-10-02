@@ -18,6 +18,11 @@ Nothing here is published until the owner approves the release (see
 
 ### Added
 
+- Installed-wheel saved-project journeys for both packages, including moved
+  projects, evidence safety, and modified-input refusal.
+- Timed headless smoke checks of both built portable Windows executables.
+  Real-window acceptance remains a separate release gate.
+
 #### Corridor Lab
 
 - **Saved local projects.** Portable `corridor-lab.project/v1` manifests
@@ -79,6 +84,11 @@ Nothing here is published until the owner approves the release (see
   well inside all declared bounds.
 
 ### Changed
+
+- Wheel verification selects exactly one built distribution without a version
+  literal; TraceCanary now verifies in an isolated environment.
+- CI action pins use Node 24. Current-state and release documentation now
+  points to this changelog and distinguishes verification from publication.
 
 - Known platform limitation: full manual visual/interaction testing was
   performed on macOS arm64 only; Windows coverage includes an

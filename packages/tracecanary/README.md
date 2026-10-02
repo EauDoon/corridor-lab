@@ -188,7 +188,7 @@ python -m compileall -q src
 python -m tracecanary.gui --smoke-test
 ```
 
-The GitHub Actions workflow runs the suite on Windows and Linux, installs the local package without runtime dependencies, checks the CLI, and runs the GUI smoke test.
+The GitHub Actions workflow runs the suite on Windows, Linux, and macOS, installs the local wheel in an isolated environment without runtime dependencies, checks the CLI and saved-project journey, and runs the headless GUI smoke test. The installed journey runs with Python isolated mode outside the checkout, so source imports cannot hide a packaging failure.
 
 ## License
 

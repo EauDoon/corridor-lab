@@ -76,10 +76,9 @@ for the observed output and exit status.
 
 ## Documentation map
 
-- Start with a package README (quick starts, command catalogs, GUI tours).
-- [ROADMAP.md](ROADMAP.md): program milestones and deferred ideas.
-- [PROGRESS.md](PROGRESS.md): current state, verification evidence, and the
-  next action.
-- [RELEASE-NOTES.md](RELEASE-NOTES.md) and
-  [RELEASE-CHECKLIST.md](RELEASE-CHECKLIST.md): draft release material
-  awaiting owner approval.
+- [CHANGELOG.md](CHANGELOG.md): implemented changes and the unreleased draft.
+- [ROADMAP.md](ROADMAP.md): remaining verification and deferred ideas.
+- [RELEASE-CHECKLIST.md](RELEASE-CHECKLIST.md): separate verification,
+  release approval, and publication gates.
+- PROGRESS.md and RELEASE-NOTES.md preserve historical development records;
+  their old branch and approval checkpoints are not current status.
