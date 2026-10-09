@@ -53,18 +53,30 @@ class GuiReportExportProtectionTests(unittest.TestCase):
             save_gui_report(self.paths["safe-export.json"], result, "human")
         self.assertEqual(self.paths["safe-export.json"].read_bytes(), before)
 
-    def test_save_rejects_symlink_and_hard_link_collisions(self):
+    def test_save_rejects_hard_link_collision(self):
+        controller = self._controller()
+        result = _gui_result(controller.check(self.paths["contract.json"], self.paths["safe-export.json"]))
+        before = self.paths["safe-export.json"].read_bytes()
+        hardlink = self.paths["safe-export.json"].parent / "hardlink-report.txt"
+        try:
+            os.link(self.paths["safe-export.json"], hardlink)
+        except (NotImplementedError, OSError):
+            self.skipTest("hard links are unavailable")
+        with self.assertRaisesRegex(Exception, "must not replace an input"):
+            save_gui_report(hardlink, result, "human")
+        self.assertEqual(self.paths["safe-export.json"].read_bytes(), before)
+
+    def test_save_rejects_symlink_collision(self):
         controller = self._controller()
         result = _gui_result(controller.check(self.paths["contract.json"], self.paths["safe-export.json"]))
         before = self.paths["safe-export.json"].read_bytes()
         symlink = self.paths["safe-export.json"].parent / "symlink-report.txt"
-        hardlink = self.paths["safe-export.json"].parent / "hardlink-report.txt"
-        os.symlink(self.paths["safe-export.json"].name, symlink)
-        os.link(self.paths["safe-export.json"], hardlink)
-        for destination in (symlink, hardlink):
-            with self.subTest(destination=destination.name):
-                with self.assertRaisesRegex(Exception, "must not replace an input"):
-                    save_gui_report(destination, result, "human")
+        try:
+            os.symlink(self.paths["safe-export.json"].name, symlink)
+        except (NotImplementedError, OSError):
+            self.skipTest("symlinks are unavailable")
+        with self.assertRaisesRegex(Exception, "must not replace an input"):
+            save_gui_report(symlink, result, "human")
         self.assertEqual(self.paths["safe-export.json"].read_bytes(), before)
 
     def test_save_rejects_destination_inside_scanned_batch_directory(self):
