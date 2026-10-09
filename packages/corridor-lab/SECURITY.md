@@ -8,6 +8,8 @@ the user selects. It writes a report or scenario only after the user chooses
 **Save Report...** or **Save Scenario As...** and a destination path. It has no
 network requests, telemetry, datastore, subprocesses, or hidden writes.
 
-Please report suspected security vulnerabilities privately to the maintainers of
-the distribution from which you obtained this copy. Do not include sensitive
-material in a public report.
+## Reporting and supported versions
+
+Report suspected vulnerabilities, and check which releases receive fixes, under
+the repository security policy:
+https://github.com/EauDoon/operator-labs/blob/main/SECURITY.md

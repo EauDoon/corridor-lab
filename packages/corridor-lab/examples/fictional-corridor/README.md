@@ -4,7 +4,8 @@ Everything in this example is invented: names, currency codes, route types,
 rates, costs, probabilities, and timings. It is a deterministic worked example,
 not a quote, forecast, recommendation, or representation of any payment network.
 
-From the repository root:
+From `packages/corridor-lab` with `PYTHONPATH=src` (or, after installation, use the
+`corridorlab` command):
 
 ```text
 python -m corridor_lab validate examples/fictional-corridor/scenario.json

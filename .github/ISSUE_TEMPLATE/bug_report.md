@@ -1,8 +1,27 @@
+---
+name: Bug report
+about: Report incorrect behavior in Corridor Lab or TraceCanary
+title: "bug: "
+labels: bug
+---
+
 # Bug Report
+
+Do not report security vulnerabilities here; follow SECURITY.md instead.
+Use synthetic inputs only: no real traces, payment or account data, secrets,
+or canary values.
+
+## Package
+
+<!-- Corridor Lab or TraceCanary -->
+
+## Version
+
+<!-- output of `corridorlab --version` or `tracecanary --version` -->
 
 ## Repro
 
-<!-- minimal steps to reproduce -->
+<!-- minimal steps and a synthetic input that reproduce the problem -->
 
 ## Expected
 
@@ -10,8 +29,8 @@
 
 ## Actual
 
-<!-- what actually happened -->
+<!-- what actually happened, including the exit status -->
 
 ## Environment
 
-<!-- OS, language or runtime version, repo commit if known -->
+<!-- operating system and Python version (`python --version`) -->

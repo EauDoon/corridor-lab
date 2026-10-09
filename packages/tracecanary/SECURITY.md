@@ -2,13 +2,9 @@
 
 TraceCanary accepts local JSON files only and makes no network requests. Its test data is synthetic.
 
-## Supported line
+## Reporting and supported versions
 
-Security fixes target the latest `0.2.x` release line while it is maintained.
-
-## Reporting
-
-Before public disclosure, report a suspected vulnerability through the repository's private security-advisory channel when one is available. Include a minimal synthetic reproduction, the TraceCanary version, the operating system, and the command used. Do not include real trace payloads, secrets, personal data, access tokens, or matched canary values.
+Report suspected vulnerabilities, and check which releases receive fixes, under the repository security policy: https://github.com/EauDoon/operator-labs/blob/main/SECURITY.md. Include a minimal synthetic reproduction, the output of `tracecanary --version`, the operating system, and the command used. Do not include real trace payloads, secrets, personal data, access tokens, or matched canary values.
 
 ## Security boundary
 

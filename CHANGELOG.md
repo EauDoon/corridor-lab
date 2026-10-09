@@ -138,6 +138,16 @@ Nothing here is published until the owner approves the release (see
   their validation keep the call and drop the name. `CONTRIBUTING.md` now
   lists the real local checks instead of `pnpm` commands and a type check
   that never existed.
+- The root `SECURITY.md` is now the single security policy. It covers the
+  case where GitHub private vulnerability reporting is not enabled (ask for a
+  private contact in an issue with no technical detail) and supports the
+  latest minor release of each package. The package policies keep their
+  security boundaries and link to it instead of naming a `0.2.x` line or
+  "the maintainers of the distribution". The issue templates gain the front
+  matter GitHub's chooser needs, the bug template asks for `--version`
+  output and synthetic inputs only, and a contact link points security
+  reports at the policy. The Corridor Lab example README now says to run its
+  commands from `packages/corridor-lab`, where the paths resolve.
 - Corridor Lab `corridor-lab.evidence/v1` documents gain an additive
   `inputs.baseline` key (`null` when no baseline was read). Batch evidence
   describes `inputs.scenario` as each JSON scenario in the scanned directory.

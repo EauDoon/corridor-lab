@@ -1,25 +1,37 @@
 # Security
 
+This is the single security policy for both packages in this repository,
+Corridor Lab and TraceCanary. Each package's own `SECURITY.md` describes its
+security boundary and links here for reporting.
+
 ## Reporting a vulnerability
 
-Please report security issues via GitHub private vulnerability reporting on the
-Security tab of this repository. Do not open a public issue for suspected
-vulnerabilities.
+Use GitHub private vulnerability reporting (the **Report a vulnerability**
+button on this repository's Security tab) when it is enabled.
 
-Include the following in your report:
+If that button is not available, open a public issue that asks a maintainer
+for a private contact. Put no technical detail in that issue: no description
+of the flaw, no reproduction, and no affected command. Share the details only
+after a private channel exists.
+
+Include the following in your private report:
 
 - A clear description of the issue and its impact.
-- Steps to reproduce or a proof of concept.
-- Affected versions, commits, or tags.
+- The affected package and the output of `corridorlab --version` or
+  `tracecanary --version`.
+- A minimal synthetic reproduction and the command used.
 - Any known mitigations or workarounds.
+
+Never include real customer, payment, or account data, real trace payloads,
+secrets, access tokens, personal data, or matched canary values.
 
 We aim to acknowledge new reports within five business days. A maintainer will
 follow up to coordinate disclosure and a fix timeline.
 
 ## Supported versions
 
-Only the latest minor release line on the `main` branch receives security fixes.
-Older releases are not patched; please upgrade before reporting.
+Security fixes target the latest minor release of each package. Older
+releases are not patched; please upgrade before reporting.
 
 ## Disclosure policy
 
