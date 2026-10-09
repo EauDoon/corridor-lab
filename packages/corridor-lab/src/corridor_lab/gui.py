@@ -902,7 +902,6 @@ class CorridorLabApp:
 
         def save() -> None:
             analysis = analysis_var.get()
-            layout = labels[analysis]
             fields: dict[str, str] = {}
             if analysis in ("transaction-grid", "stress-grid"):
                 fields = {"parameter_a": field_a_var.get(), "values_a": field_b_var.get(),

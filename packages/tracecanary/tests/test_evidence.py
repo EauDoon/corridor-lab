@@ -76,7 +76,6 @@ class GuiResultLike:
     def __init__(self, campaign):
         poisoned = json.loads(campaign.json)
         poisoned["contract_version"] = "tracecanary/v1 TCANARY_PROMPT_71f0e04f"
-        from tracecanary.gui_controller import GuiResult
 
         self.status = campaign.status
         self.exit_code = campaign.exit_code

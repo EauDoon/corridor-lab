@@ -1,0 +1,8 @@
+# Repository-wide lint for both packages and tools/. It lives at the root
+# rather than in the package pyprojects, which ship inside the sdists.
+# Pyflakes (F) and syntax errors (E9) only; CI pins the ruff version so a
+# release that adds rules cannot change the gate unannounced.
+target-version = "py311"
+
+[lint]
+select = ["F", "E9"]

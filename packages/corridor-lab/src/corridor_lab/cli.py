@@ -5,7 +5,6 @@ from __future__ import annotations
 import argparse
 import json
 import os
-import stat as stat_module
 import sys
 from collections.abc import Mapping, Sequence
 from decimal import Decimal, DecimalException
@@ -24,8 +23,6 @@ from .analysis import (
     resolution_quantiles,
 )
 from .canonical import (
-    MAX_BATCH_SCENARIOS,
-    MAX_INPUT_BYTES,
     InputError,
     atomic_write_text,
     parse_json_bytes,
@@ -33,7 +30,6 @@ from .canonical import (
     read_bounded_bytes,
     require_decimal_values,
 )
-from .batching import read_scanned_scenario as _read_scanned_scenario
 from .batching import run_scenario_batch as _batch
 from .comparison import compare_routes, evaluate_scenario, pareto_frontier
 from .model import evaluate_route
@@ -456,7 +452,8 @@ def _project_run_variants(args: argparse.Namespace) -> int:
         for problem in loaded.problems:
             _write_error(problem)
         return 2
-    scenario = load_scenario(loaded.resolved["scenario"])
+    # Load the project scenario through the full validator before deriving variants.
+    load_scenario(loaded.resolved["scenario"])
     base_raw, derived = _project_variant_state(loaded)
     experiment = next((item for item in loaded.manifest.experiments if item.name == args.experiment), None)
     if experiment is None:
@@ -465,7 +462,6 @@ def _project_run_variants(args: argparse.Namespace) -> int:
     items: list[dict[str, object]] = []
     for index, name in enumerate(chosen, start=1):
         try:
-            variant = derived[name]
             variant_scenario = parse_scenario(apply_variant_chain(derived, name, base_raw))
             report = execute_experiment(experiment, variant_scenario)
             status = "pass"

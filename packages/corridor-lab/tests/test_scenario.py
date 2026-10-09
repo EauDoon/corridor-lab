@@ -38,8 +38,6 @@ class ScenarioTests(unittest.TestCase):
         self.assertEqual(parse_json_text('{"description":"\\ud83d\\ude00"}'), {"description": "\U0001f600"})
 
     def test_batch_rejects_a_scenario_swapped_after_discovery(self):
-        import corridor_lab.cli as cli_module
-
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             inside = root / "inside.json"

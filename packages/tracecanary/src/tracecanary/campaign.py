@@ -23,7 +23,7 @@ from tracecanary.batching import run_batch
 from tracecanary.canonical import InputError, load_json
 from tracecanary.checker import check_trace
 from tracecanary.comparison import diff_traces
-from tracecanary.contract import Contract, load_contract
+from tracecanary.contract import Contract
 from tracecanary.inspection import control_check, coverage_gate, population_gate, require_population_gate
 from tracecanary.otlp import OtlpError, validate_trace
 from tracecanary.report import Report, Status, ensure_object_values_absent

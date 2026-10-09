@@ -618,7 +618,7 @@ class TraceCanaryWindow:
         )
         self._apply(result)
         if result.status == "pass":
-            self._status.set(f"Status: project saved. Settings and synthetic inputs were copied explicitly; reports stay separate.")
+            self._status.set("Status: project saved. Settings and synthetic inputs were copied explicitly; reports stay separate.")
 
     def _review_contract(self) -> None:
         self._apply(self._controller.review_contract(self._contract.get()))

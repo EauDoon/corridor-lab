@@ -11,7 +11,6 @@ from __future__ import annotations
 
 import re
 from decimal import Decimal, DecimalException
-from pathlib import Path
 from typing import Any
 
 from .canonical import (
@@ -22,7 +21,6 @@ from .canonical import (
 )
 from .comparison import evaluate_route
 from .scenario import Scenario, _parse_transaction
-from .transaction_sweep import TRANSACTION_PARAMETERS
 
 CONSTRAINTS: dict[str, dict[str, str]] = {
     "expected_sender_cost_at_most": {"metric": "expected_sender_cost", "op": "at_most", "unit": "cost"},

@@ -467,7 +467,6 @@ class TraceCanaryController:
             if not project_dir.is_dir():
                 raise InputError(f"the project destination must be an existing directory: {destination}")
             placed: dict[str, Path] = {}
-            copied: dict[Path, Path] = {}
             copied_sources: dict[Path, Path] = {}
 
             def place(source: Path | None, *, folder: bool = False, recursive: bool = False) -> Path | None:

@@ -12,7 +12,6 @@ from corridor_lab.projects import (
     build_manifest,
     experiment_from_cli,
     load_project,
-    make_input_ref,
     manifest_text,
     parse_manifest,
     write_project,

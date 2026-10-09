@@ -24,7 +24,6 @@ class CampaignEngineTests(unittest.TestCase):
         cls._temporary = tempfile.TemporaryDirectory()
         cls.root = Path(cls._temporary.name)
         cls.files = bundle()
-        cls.contract = parse_contract = None
         from tracecanary.contract import parse_contract
 
         cls.contract = parse_contract(cls.files["contract.json"])
@@ -219,11 +218,11 @@ class ControllerCampaignTests(unittest.TestCase):
                          "--baseline", str(project_root / "safe-export.json")])
             self.assertEqual(code, 0)
             code = main(["campaign", "run", str(project_root), "--control", str(project_root / "positive-control.json"),
-                         "--save-summary", str(self.root / "cli-summary.json")])
+                         "--save-summary", str(summary_path)])
         self.assertEqual(code, 1)
-        saved = json.loads((self.root / "cli-summary.json").read_text(encoding="utf-8"))
+        saved = json.loads(summary_path.read_text(encoding="utf-8"))
         self.assertEqual(saved["campaign_status"], "regression")
-        self.assertNotIn("TCANARY", (self.root / "cli-summary.json").read_text(encoding="utf-8"))
+        self.assertNotIn("TCANARY", summary_path.read_text(encoding="utf-8"))
         self.assertEqual(saved["phases"]["candidates"]["finding_counts"], {"TC001": 1, "TC002": 1})
 
     def test_summary_save_refuses_inputs_and_project_directories(self):

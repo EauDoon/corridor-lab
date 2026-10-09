@@ -121,6 +121,13 @@ Nothing here is published until the owner approves the release (see
   replaces the TOML-table license and the license classifier, which setuptools
   deprecates and stops building after 2027-02-18. Wheels now carry
   `Metadata-Version: 2.4` and `License-Expression: MIT`.
+- A new `Repo checks` workflow runs on every push and pull request, with no
+  path filter, and lints the whole repository with pinned `ruff==0.16.10`
+  (pyflakes and syntax errors, configured in the root `ruff.toml`). The
+  dead imports and unused locals it found are gone; calls kept only for
+  their validation keep the call and drop the name. `CONTRIBUTING.md` now
+  lists the real local checks instead of `pnpm` commands and a type check
+  that never existed.
 - Corridor Lab `corridor-lab.evidence/v1` documents gain an additive
   `inputs.baseline` key (`null` when no baseline was read). Batch evidence
   describes `inputs.scenario` as each JSON scenario in the scanned directory.

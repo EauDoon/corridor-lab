@@ -46,7 +46,6 @@ from .variants import (
     DerivedVariant,
     apply_variant_chain as materialize_variant,
     parse_derived_variant,
-    validate_changes,
     validate_variant_graph,
     variant_comparison,
     variant_diff_report,
@@ -315,7 +314,7 @@ class CorridorGuiController:
         never converted through binary floats.
         """
         try:
-            scenario = self._require_scenario()
+            self._require_scenario()
             if self.scenario_raw is None:
                 raise InputError("no editable scenario data is available")
             raw = copy.deepcopy(self.scenario_raw)
@@ -595,7 +594,7 @@ class CorridorGuiController:
     def apply_variant(self, name: str) -> ActionResult:
         """Install a derived variant as the active scenario (in memory, unsaved)."""
         try:
-            scenario = self._require_scenario()
+            self._require_scenario()
             if self.scenario_raw is None:
                 raise InputError("the active scenario has no editable baseline data; load it from a file")
             if name not in self.derived_variants:

@@ -5,7 +5,6 @@ from __future__ import annotations
 import argparse
 import sys
 from collections.abc import Sequence
-from fractions import Fraction
 from pathlib import Path
 from typing import Any
 
@@ -17,7 +16,6 @@ from tracecanary.contract import Contract, ContractError, load_contract
 from tracecanary.coverage import coverage_report
 from tracecanary.fixture import write_bundle
 from tracecanary.inspection import (
-    _parse_minimum_ratio,
     control_check,
     coverage_diff,
     coverage_gate,
@@ -26,18 +24,15 @@ from tracecanary.inspection import (
     population_gate,
     retention_matrix,
 )
-from tracecanary.otlp import OtlpError, validate_trace
+from tracecanary.otlp import OtlpError
 from tracecanary.output import protect_inputs, write_report
 from tracecanary.project import build_manifest, load_project, write_project
 from tracecanary.report import (
-    BatchItem,
     BatchReport,
     Report,
     Status,
     UnsafeReportError,
-    Violation,
     build_report,
-    ensure_object_values_absent,
     ensure_text_values_absent,
     ensure_values_absent,
     render_batch_human,
@@ -444,7 +439,7 @@ def canonical_json_text(value: Any) -> str:
 
 
 def _campaign(args: Any) -> int:
-    from tracecanary.campaign import CAMPAIGN_VERSION, campaign_summary, compare_summaries, render_comparison_human, run_campaign
+    from tracecanary.campaign import campaign_summary, compare_summaries, render_comparison_human, run_campaign
     from tracecanary.project import load_project
     from tracecanary.report import ensure_text_values_absent
 
@@ -566,12 +561,6 @@ def render_contract_review_human(report: dict[str, Any]) -> str:
     from tracecanary.authoring import render_review_human
 
     return render_review_human(report)
-
-
-def _load_trace(path: Path, contract: Contract) -> dict[str, Any]:
-    payload = load_json(path, max_bytes=contract.max_input_bytes, max_depth=contract.max_nesting)
-    validate_trace(payload)
-    return payload
 
 
 def _run_batch(contract: Contract, input_dir: Path, recursive: bool, include_paths: bool, baseline: dict[str, Any] | None = None, *, coverage: bool = False, minimum_ratio: str | None = None, population_scope: str | None = None, population_minimum: int | None = None) -> BatchReport:

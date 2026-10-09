@@ -19,14 +19,12 @@ import json
 import shutil
 import stat as stat_module
 from dataclasses import dataclass
-from decimal import Decimal, DecimalException
+from decimal import Decimal
 from pathlib import Path, PurePosixPath
 
 from .analysis import deadline_target, resolution_quantiles
 from .variants import (
     DerivedVariant,
-    apply_variant_chain,
-    chain_changes,
     parse_derived_variant,
     validate_variant_graph,
 )
