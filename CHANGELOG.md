@@ -102,6 +102,17 @@ Nothing here is published until the owner approves the release (see
   weekly grouped update. The portable Windows builds run on pull requests
   that change their workflow, launcher, or packaging, and never cancel a
   build already in progress.
+- **Release gate.** `tools/check_release.py` enforces the lockstep version
+  policy, the dynamic pyproject version, package `LICENSE` files equal to the
+  root, and this file's structure (one Unreleased section, dated version
+  sections in descending order, link references, no repeated subsections).
+  It runs with its own unit tests in `Repo checks`. With `--tag` it gates both
+  portable Windows workflows, which now trigger on `corridor-lab-v*` and
+  `tracecanary-v*`, name their archives with the version, and also retain
+  the wheel and sdist with a `SHA256SUMS` file. `--notes X.Y.Z` prints a
+  section for release notes. This file now records 0.2.0, 0.1.1, and 0.1.0,
+  which were set on `main` but never tagged, and both `docs/RELEASE.md`
+  files describe the release process instead of one version.
 - Measured bounded workloads are recorded in PROGRESS.md; results sit
   well inside all declared bounds.
 
@@ -161,10 +172,6 @@ Nothing here is published until the owner approves the release (see
   automated real-window background-batch regression in CI.
 
 ### Deprecated
-
-- None.
-
-### Removed
 
 - None.
 
@@ -445,6 +452,63 @@ Nothing here is published until the owner approves the release (see
   removed; all existing command names, report contracts, deterministic
   outputs, and status semantics preserved.
 
+## [0.2.0] - 2026-09-10
+
+Both packages were set to 0.2.0 on `main` in 2837b4c. This version was never
+tagged or published as a release; the summaries below are moved verbatim from
+the two `docs/RELEASE.md` files.
+
+### Added
+
+#### Corridor Lab
+
+- Version 0.2.0 adds signed guardrail headroom, a weighted outcome ledger,
+  deadline/resolution profiles, whole-volume break-even checks, and bounded
+  transaction grids. Existing route evaluation and ranking semantics remain
+  unchanged.
+
+#### TraceCanary
+
+- Version 0.2.0 adds value-free contract inspection, exact coverage gates and
+  comparisons, missing-retention matrices, and weighted batch coverage.
+  Existing check and diff semantics remain unchanged. A release build must run
+  from a clean checkout on Windows and Ubuntu with Python 3.11 or newer.
+
+## [0.1.1] - 2026-08-03
+
+Corridor Lab was set to 0.1.1 in 8f00cde and TraceCanary in d7fbaaf, while
+each package still had its own history. This version was never tagged or
+published as a release; the summaries below are the `docs/RELEASE.md` text
+that 2837b4c replaced.
+
+### Added
+
+#### Corridor Lab
+
+- Version 0.1.1 pins the setuptools build backend and adds bounded batch
+  portfolios, explicit two-parameter stress grids, and a Pareto frontier that
+  keeps expected recipient amount and expected sender cost separate.
+
+#### TraceCanary
+
+- The package version, pinned setuptools build backend, and deterministic
+  batch report formats are the v0.1.1 release boundary. A release build must
+  run from a clean checkout on Windows and Ubuntu with Python 3.11 or newer.
+
+## [0.1.0] - 2026-08-02
+
+Initial releases: Corridor Lab in 550a70d and TraceCanary in be75fb9, each the
+root commit of its own history. On 2026-08-30, 4864a4f established this
+repository's package layout and 422a9c9 imported the TraceCanary history into
+it. This version was never tagged.
+
+### Added
+
+- Corridor Lab 0.1.0, the first deterministic comparison of fictional
+  cross-border payment routes.
+- TraceCanary 0.1.0, the first synthetic-canary privacy-regression checker
+  for OTLP/HTTP JSON trace exports.
+
 ## Milestone history
 
 This section preserves the milestone-by-milestone development record
@@ -668,3 +732,8 @@ None.
   pointing readers to this CHANGELOG.md.
 - No content has been invented; every entry traces back to
   `RELEASE-NOTES.md` or `PROGRESS.md`.
+
+[Unreleased]: https://github.com/EauDoon/operator-labs/compare/2837b4c...HEAD
+[0.2.0]: https://github.com/EauDoon/operator-labs/compare/8f00cde...2837b4c
+[0.1.1]: https://github.com/EauDoon/operator-labs/compare/550a70d...8f00cde
+[0.1.0]: https://github.com/EauDoon/operator-labs/commit/550a70d

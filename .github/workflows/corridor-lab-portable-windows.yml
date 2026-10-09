@@ -3,7 +3,7 @@ name: Corridor Lab portable Windows GUI
 on:
   workflow_dispatch:
   push:
-    tags: ["corridor-lab-v0.*"]
+    tags: ["corridor-lab-v*"]
   # A pull request that changes how the executable is built exercises the build.
   pull_request:
     paths:
@@ -34,8 +34,34 @@ jobs:
       - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
         with:
           python-version: "3.12"
+      # A tag build stops here unless the tag, __version__ and CHANGELOG agree.
+      - name: Check release metadata and record the version
+        working-directory: .
+        shell: pwsh
+        run: |
+          if ($env:GITHUB_REF_TYPE -eq "tag") {
+            python tools/check_release.py --tag "$env:GITHUB_REF_NAME"
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          }
+          $version = python tools/check_release.py --print-version corridor-lab
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          Add-Content -Path $env:GITHUB_ENV -Value "VERSION=$version"
       - name: Install pinned build tools
         run: python -m pip install --disable-pip-version-check "setuptools==83.0.0" "pyinstaller==6.15.0"
+      - name: Build the wheel and sdist from the clean checkout
+        shell: pwsh
+        run: |
+          $distDir = Join-Path $env:RUNNER_TEMP "corridor-lab-dist"
+          New-Item -ItemType Directory -Force -Path $distDir | Out-Null
+          # One backend call per process: setuptools keeps command state between calls.
+          foreach ($hook in @("build_wheel", "build_sdist")) {
+            python -c "import sys; from setuptools import build_meta as b; print(getattr(b, sys.argv[1])(sys.argv[2]))" $hook $distDir
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          }
+          $files = @(Get-ChildItem -LiteralPath $distDir -File | Where-Object { $_.Name -like "corridor_lab-$env:VERSION*" })
+          if ($files.Count -ne 2) { throw "Expected one Corridor Lab $env:VERSION wheel and one sdist." }
+          $sums = $files | Sort-Object Name | ForEach-Object { "$((Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant())  $($_.Name)" }
+          Set-Content -LiteralPath (Join-Path $distDir "SHA256SUMS") -Value $sums
       - name: Install Corridor Lab
         run: python -m pip install --no-deps .
       - name: Build portable GUI
@@ -45,14 +71,22 @@ jobs:
       - name: Write artifact hash
         shell: pwsh
         run: |
-          Compress-Archive -Path dist/CorridorLab.exe -DestinationPath dist/CorridorLab-windows-x64.zip
-          (Get-FileHash dist/CorridorLab-windows-x64.zip -Algorithm SHA256).Hash.ToLowerInvariant() | Set-Content -NoNewline dist/CorridorLab-windows-x64.zip.sha256
+          $archive = "dist/CorridorLab-$env:VERSION-windows-x64.zip"
+          Compress-Archive -Path dist/CorridorLab.exe -DestinationPath $archive
+          (Get-FileHash $archive -Algorithm SHA256).Hash.ToLowerInvariant() | Set-Content -NoNewline "$archive.sha256"
       - name: Retain portable GUI assets
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: CorridorLab-windows-x64
+          name: CorridorLab-${{ env.VERSION }}-windows-x64
           path: |
-            packages/corridor-lab/dist/CorridorLab-windows-x64.zip
-            packages/corridor-lab/dist/CorridorLab-windows-x64.zip.sha256
+            packages/corridor-lab/dist/CorridorLab-${{ env.VERSION }}-windows-x64.zip
+            packages/corridor-lab/dist/CorridorLab-${{ env.VERSION }}-windows-x64.zip.sha256
+          if-no-files-found: error
+          retention-days: 14
+      - name: Retain the wheel and sdist
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: corridor-lab-${{ env.VERSION }}-dist
+          path: ${{ runner.temp }}/corridor-lab-dist/
           if-no-files-found: error
           retention-days: 14
