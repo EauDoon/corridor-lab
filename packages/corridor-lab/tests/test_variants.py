@@ -276,8 +276,35 @@ class ChainedVariantTests(unittest.TestCase):
             self.assertIn("5.00", out.getvalue())
             self.assertIn("| 1 |", out.getvalue())
             # chained materialization flows through run-variants
-            runs = root / "runs.json"
-            self.assertEqual(cli_main(["project", "run-variants", str(project_root), "--experiment", "none"],) == 2, True)
+            self.assertEqual(cli_main(["project", "add-experiment", str(project_root), "--experiment",
+                                       "sweep:transaction-sweep:parameter=deadline_hours;values=1,8"]), 0)
+            out = StringIO()
+            with redirect_stdout(out):
+                self.assertEqual(cli_main(["project", "run-variants", str(project_root), "--experiment", "sweep",
+                                           "--format", "json"]), 0)
+            runs = {item["variant"]: item for item in json.loads(out.getvalue())["items"]}
+            self.assertEqual(sorted(runs), ["tight", "tight-plus-fee"])
+            self.assertEqual(runs["tight-plus-fee"]["status"], "pass")
+            tight_costs = [row["expected_sender_cost"] for row in runs["tight"]["report"]["rows"]]
+            chained_costs = [row["expected_sender_cost"] for row in runs["tight-plus-fee"]["report"]["rows"]]
+            self.assertEqual(len(tight_costs), len(chained_costs))
+            # the inherited fee change is applied, so every sender cost moves
+            self.assertTrue(all(left != right for left, right in zip(tight_costs, chained_costs)))
+            self.assertEqual(cli_main(["project", "run-variants", str(project_root), "--experiment", "none"]), 2)
             self.assertEqual(cli_main(["project", "compare-variants", str(project_root), "--format", "csv", "--output", str(root / "cmp.csv")]), 0)
             comparison = (root / "cmp.csv").read_text(encoding="utf-8")
             self.assertIn("tight-plus-fee", comparison)
+
+
+class VariantMetricLabelTests(unittest.TestCase):
+    def test_expected_recipient_amount_is_not_labelled_conditional(self):
+        base = scenario(routes=[route("fictional-route-one")])
+        variants = {"tight": parse_derived_variant("tight", {"base": "scenario", "changes": {"transaction": {"deadline_hours": "1"}}})}
+        report = variant_comparison(base, variants, "fictional-project")
+        definitions = {row["metric_definition"] for row in report["rows"] if row["metric"] == "expected_recipient_amount"}
+        self.assertEqual(definitions, {"expected recipient amount (failure outcomes contribute zero)"})
+        from corridor_lab.report import render_report
+
+        csv_rows = [line for line in render_report(report, "csv").splitlines() if ",expected_recipient_amount," in line]
+        self.assertTrue(csv_rows)
+        self.assertTrue(all("conditional" not in line for line in csv_rows))

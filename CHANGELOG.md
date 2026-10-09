@@ -114,6 +114,21 @@ Nothing here is published until the owner approves the release (see
 
 ### Fixed
 
+- **Corridor Lab `project run` and `project run-variants` crashed on Markdown.**
+  Both commands advertise `--format markdown` (also chosen by a `.md`
+  `--output` or `CORRIDOR_LAB_FORMAT=markdown`), but the Markdown renderer had
+  no branch for `corridor-lab.project-run/v1` and fell through to the route
+  table, so every such run ended in a `KeyError: 'routes'` traceback. Project
+  runs now render a status table per experiment or variant followed by each
+  passing item's own report, nested two heading levels down. A report kind the
+  renderer does not know now fails with exit 2 and a diagnostic instead of a
+  traceback.
+- **Corridor Lab `compare-variants` called the expected recipient amount
+  conditional.** The `metric_definition` for `expected_recipient_amount` read
+  "conditional recipient amount", which `docs/MODEL.md` defines as the amount
+  before weighting by success probability. It now reads "expected recipient
+  amount (failure outcomes contribute zero)" in JSON, CSV, and Markdown. The
+  metric values are unchanged.
 - **Corridor Lab variant changes could not name a route id that contains a dot.**
   ``route.ROUTE_ID.FIELD`` split on the first dot, so ``my.route`` was read
   as route id ``my`` and a field of ``route.fx_rate``. Route ids may contain

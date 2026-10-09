@@ -337,7 +337,7 @@ def variant_diff_report(variants: dict[str, DerivedVariant], name: str, base_raw
 
 
 METRIC_LABELS = (
-    ("expected_recipient_amount", "conditional recipient amount", "amount"),
+    ("expected_recipient_amount", "expected recipient amount (failure outcomes contribute zero)", "amount"),
     ("expected_sender_cost", "expected sender cost", "cost"),
     ("probability_by_deadline", "successful by deadline probability", "probability"),
     ("tail_completion_time_hours", "tail completion time", "hours"),
