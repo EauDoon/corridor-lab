@@ -52,19 +52,33 @@ def build_evidence(
     scenario_source: str = "",
     routes_source: str = "",
     project_source: str = "",
+    baseline_source: str = "",
+    scenario_directory: str = "",
     notes: str = "",
 ) -> dict[str, Any]:
-    """Assemble the evidence document; the report is embedded verbatim."""
+    """Assemble the evidence document; the report is embedded verbatim.
+
+    ``scenario_directory`` names the folder a batch scanned; it replaces the
+    single-scenario description because every file there carries its own
+    routes. ``baseline_source`` names the "before" scenario of a diff.
+    """
     if not isinstance(report, dict) or "report_version" not in report:
         raise InputError("evidence requires a rendered corridor-lab report")
+    if scenario_directory:
+        scenario_text = f"each JSON scenario in {scenario_directory}"
+        routes_text = "routes embedded in each scenario"
+    else:
+        scenario_text = scenario_source or "built-in fictional demo"
+        routes_text = routes_source or "routes embedded in the scenario"
     document: dict[str, Any] = {
         "evidence_version": EVIDENCE_VERSION,
         "tool": {"name": "corridor-lab", "version": __version__},
         "analysis": analysis_kind(report),
         "report": report,
         "inputs": {
-            "scenario": scenario_source or "built-in fictional demo",
-            "routes": routes_source or "routes embedded in the scenario",
+            "scenario": scenario_text,
+            "routes": routes_text,
+            "baseline": baseline_source or None,
             "project": project_source or None,
         },
         "limitations": STANDING_LIMITATIONS,

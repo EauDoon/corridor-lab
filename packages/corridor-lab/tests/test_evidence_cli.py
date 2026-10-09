@@ -69,6 +69,52 @@ class EvidenceCliTests(unittest.TestCase):
             robust_document = json.loads((root / "rb.json").read_text(encoding="utf-8"))
             self.assertEqual(robust_document["analysis"], "robustness-review")
 
+    def test_evidence_names_the_inputs_each_command_actually_read(self):
+        with tempfile.TemporaryDirectory() as temporary, redirect_stdout(StringIO()), redirect_stderr(StringIO()):
+            root = Path(temporary)
+            portfolio = root / "portfolio"
+            portfolio.mkdir()
+            (portfolio / "one.json").write_text(json.dumps(scenario(routes=[route("fictional-embedded")])), encoding="utf-8")
+            self.assertEqual(main(["batch", str(portfolio), "--evidence", str(root / "batch.json")]), 0)
+            batch_inputs = json.loads((root / "batch.json").read_text(encoding="utf-8"))["inputs"]
+            self.assertEqual(batch_inputs["scenario"], f"each JSON scenario in {portfolio}")
+            self.assertNotIn("built-in", batch_inputs["scenario"])
+            self.assertEqual(batch_inputs["routes"], "routes embedded in each scenario")
+            self.assertIsNone(batch_inputs["baseline"])
+
+            first, second = root / "a.json", root / "b.json"
+            first.write_text(json.dumps(scenario(routes=[route("fictional-shared")])), encoding="utf-8")
+            second.write_text(json.dumps(scenario(routes=[route("fictional-shared")])), encoding="utf-8")
+            self.assertEqual(main(["robustness-review", str(first), str(second), "--constraint",
+                                   "probability_by_deadline_at_least=0.5", "--evidence", str(root / "rb.json")]), 0)
+            robust_inputs = json.loads((root / "rb.json").read_text(encoding="utf-8"))["inputs"]
+            self.assertEqual(robust_inputs["scenario"], f"{first}; {second}")
+
+            self.assertEqual(main(["diff", str(second), "--baseline", str(first), "--evidence", str(root / "diff.json")]), 0)
+            diff_inputs = json.loads((root / "diff.json").read_text(encoding="utf-8"))["inputs"]
+            self.assertEqual(diff_inputs["scenario"], str(second))
+            self.assertEqual(diff_inputs["baseline"], str(first))
+
+    def test_evidence_collision_is_refused_before_the_report_is_written(self):
+        with tempfile.TemporaryDirectory() as temporary, redirect_stdout(StringIO()), redirect_stderr(StringIO()) as err:
+            root = Path(temporary)
+            victim = root / "victim.json"
+            victim.write_text(json.dumps(scenario(routes=[route("fictional-embedded")])), encoding="utf-8")
+            before = victim.read_bytes()
+            output = root / "out" / "report.json"
+            self.assertEqual(main(["evaluate", str(victim), "--output", str(output), "--evidence", str(victim)]), 2)
+            self.assertIn("must not replace an input", err.getvalue())
+            self.assertFalse(output.exists())
+            self.assertFalse(output.parent.exists())
+            self.assertEqual(victim.read_bytes(), before)
+            portfolio = root / "portfolio"
+            portfolio.mkdir()
+            (portfolio / "one.json").write_text(json.dumps(scenario(routes=[route("fictional-embedded")])), encoding="utf-8")
+            batch_output = root / "batch.json"
+            self.assertEqual(main(["batch", str(portfolio), "--output", str(batch_output),
+                                   "--evidence", str(portfolio / "evidence.json")]), 2)
+            self.assertFalse(batch_output.exists())
+
     def test_evidence_reports_the_declared_package_version(self):
         project = tomllib.loads((PACKAGE / "pyproject.toml").read_text(encoding="utf-8"))["project"]
         self.assertEqual(corridor_lab.__version__, project["version"])

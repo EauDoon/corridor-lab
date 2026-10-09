@@ -85,6 +85,9 @@ Nothing here is published until the owner approves the release (see
 
 ### Changed
 
+- Corridor Lab `corridor-lab.evidence/v1` documents gain an additive
+  `inputs.baseline` key (`null` when no baseline was read). Batch evidence
+  describes `inputs.scenario` as each JSON scenario in the scanned directory.
 - Wheel verification selects exactly one built distribution without a version
   literal; TraceCanary now verifies in an isolated environment.
 - CI action pins use Node 24. Current-state and release documentation now
@@ -129,6 +132,20 @@ Nothing here is published until the owner approves the release (see
   before weighting by success probability. It now reads "expected recipient
   amount (failure outcomes contribute zero)" in JSON, CSV, and Markdown. The
   metric values are unchanged.
+- **Corridor Lab evidence documents misstated their inputs.** `batch
+  --evidence` recorded the scenario as "built-in fictional demo",
+  `robustness-review` recorded a Python list literal, and `diff` never named
+  its baseline. In the desktop, evidence for a portfolio batch named whatever
+  scenario had been loaded before it. Evidence now records the scanned batch
+  directory, every reviewed scenario separated by `; `, and the diff baseline.
+- **Corridor Lab wrote the report before refusing a colliding `--evidence`
+  path.** `evaluate victim.json --output out.json --evidence victim.json`
+  exited 2 but left `out.json` written. Both destinations are now checked
+  against every input and each other before any analysis runs.
+- **`CORRIDOR_LAB_FORMAT` broke project commands that emit no report.** An
+  unsupported value such as `yaml` made `project validate` and `project
+  create` exit 2. Project subcommands now resolve their own formats, as they
+  already did for the commands that write reports.
 - **Corridor Lab variant changes could not name a route id that contains a dot.**
   ``route.ROUTE_ID.FIELD`` split on the first dot, so ``my.route`` was read
   as route id ``my`` and a field of ``route.fx_rate``. Route ids may contain
