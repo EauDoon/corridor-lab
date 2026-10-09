@@ -1,6 +1,5 @@
 import json
 import tempfile
-import tomllib
 import unittest
 from contextlib import redirect_stderr, redirect_stdout
 from io import StringIO
@@ -115,9 +114,8 @@ class EvidenceCliTests(unittest.TestCase):
                                    "--evidence", str(portfolio / "evidence.json")]), 2)
             self.assertFalse(batch_output.exists())
 
-    def test_evidence_reports_the_declared_package_version(self):
-        project = tomllib.loads((PACKAGE / "pyproject.toml").read_text(encoding="utf-8"))["project"]
-        self.assertEqual(corridor_lab.__version__, project["version"])
+    def test_evidence_reports_the_package_version(self):
+        # pyproject reads the same __version__ (test_metadata checks the dynamic attr).
         with tempfile.TemporaryDirectory() as temporary, redirect_stdout(StringIO()), redirect_stderr(StringIO()):
             root = Path(temporary)
             evidence = root / "evidence.json"

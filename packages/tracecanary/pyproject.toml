@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "tracecanary"
-version = "0.2.0"
+dynamic = ["version"]
 description = "Deterministic privacy-regression checks for synthetic OTLP trace canaries."
 readme = "README.md"
 requires-python = ">=3.11"
@@ -35,6 +35,11 @@ tracecanary-gui = "tracecanary.gui:main"
 
 [tool.setuptools]
 package-dir = {"" = "src"}
+
+# __version__ in the package is the single source of truth; setuptools reads
+# the literal statically, without importing the package.
+[tool.setuptools.dynamic]
+version = {attr = "tracecanary.__version__"}
 
 [tool.setuptools.packages.find]
 where = ["src"]

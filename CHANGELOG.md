@@ -22,6 +22,16 @@ Nothing here is published until the owner approves the release (see
   projects, evidence safety, and modified-input refusal.
 - Timed headless smoke checks of both built portable Windows executables.
   Real-window acceptance remains a separate release gate.
+- **`--version` on every entry point.** `corridorlab`, `corridorlab-gui`,
+  `tracecanary`, and `tracecanary-gui` print their name and version. The
+  desktop window titles show the version too, because the Windows GUI
+  launchers have no console. Each package's `__version__` is now the single
+  source of truth: `pyproject.toml` reads it through
+  `[tool.setuptools.dynamic]`, and the installed journeys check the
+  distribution metadata and the installed `--version` output against it.
+- **Versioned SARIF.** TraceCanary's SARIF `tool.driver` now carries
+  `version` and `semanticVersion`, so code-scanning uploads name the release
+  that produced them.
 
 #### Corridor Lab
 

@@ -10,7 +10,7 @@ TraceCanary uses only the Python standard library at runtime. It has no network 
 
 ## Scope
 
-Supported in v0.2.0:
+Supported in this release:
 
 - OTLP/HTTP JSON traces with `resourceSpans`.
 - Exact synthetic-canary detection anywhere in a supported payload.
@@ -20,7 +20,7 @@ Supported in v0.2.0:
 - Stable JSON and human-readable reports.
 - Bounded directory checks with deterministic JSON, SARIF, and JUnit output.
 
-Not supported in v0.2.0:
+Not supported:
 
 - Protobuf, logs, metrics, collector execution, or redaction.
 - Generic secret or PII discovery.

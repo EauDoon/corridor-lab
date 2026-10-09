@@ -10,6 +10,7 @@ import argparse
 import sys
 from collections.abc import Sequence
 
+from . import __version__
 from .gui_controller import ActionResult, CorridorGuiController
 from .variants import parse_variant_changes_argument
 
@@ -150,7 +151,8 @@ class CorridorLabApp:
         self.editor_window = None
         self.editor_text = None
         self.editor_status_var = None
-        root.title("Corridor Lab")
+        # Windows gui-scripts have no console, so the title shows the version.
+        root.title(f"Corridor Lab {__version__}")
         root.minsize(880, 600)
         root.bind_all("<Control-e>", self._open_editor_shortcut)
         root.bind_all("<Control-h>", self._explain_report_shortcut)
@@ -1018,6 +1020,7 @@ def launch_gui() -> int:
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="corridorlab-gui", description="Open the Corridor Lab desktop interface.")
     parser.add_argument("--smoke-test", action="store_true", help="exercise controller and built-in demo without opening a window")
+    parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
     args = parser.parse_args(argv)
     if args.smoke_test:
         return run_smoke_test()

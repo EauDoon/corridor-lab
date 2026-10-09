@@ -11,6 +11,7 @@ from unittest.mock import Mock, patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
+import tracecanary
 from tracecanary.canonical import load_json
 from tracecanary.checker import check_trace
 from tracecanary.cli import EXIT_PASS, EXIT_REGRESSION, EXIT_UNRESOLVED, main
@@ -447,6 +448,8 @@ class ReportTests(unittest.TestCase):
                 if output_format == "sarif":
                     driver = json.loads(rendered[0])["runs"][0]["tool"]["driver"]
                     self.assertEqual(driver["informationUri"], "https://github.com/EauDoon/operator-labs/tree/main/packages/tracecanary")
+                    self.assertEqual(driver["version"], tracecanary.__version__)
+                    self.assertEqual(driver["semanticVersion"], tracecanary.__version__)
 
     @staticmethod
     def _contract_with_canary(value: str) -> dict[str, object]:

@@ -8,6 +8,7 @@ from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
 
+from tracecanary import __version__
 from tracecanary.canonical import InputError, load_json
 from tracecanary.batching import _load_trace, run_batch
 from tracecanary.checker import check_trace
@@ -83,6 +84,7 @@ def build_parser() -> argparse.ArgumentParser:
         epilog=_EXIT_STATUS_HELP,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
+    parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
     commands = parser.add_subparsers(dest="command", required=True, parser_class=_ArgumentParser)
     validate = commands.add_parser("validate", help="validate a TraceCanary contract")
     validate.add_argument("contract", type=_cli_path, help="TraceCanary contract JSON file")

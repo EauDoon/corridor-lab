@@ -12,6 +12,7 @@ import threading
 from collections.abc import Callable, Sequence
 from pathlib import Path
 
+from tracecanary import __version__
 from tracecanary.canonical import InputError
 from tracecanary.gui_controller import (
     EXIT_PASS,
@@ -80,6 +81,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         action="store_true",
         help="exercise the controller and built-in demo without opening a window",
     )
+    parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
     try:
         args = parser.parse_args(argv)
     except SystemExit as exc:
@@ -171,7 +173,8 @@ class TraceCanaryWindow:
         self._result: GuiResult | None = None
         self._view = "human"
         self._root = tk.Tk()
-        self._root.title("TraceCanary")
+        # Windows gui-scripts have no console, so the title shows the version.
+        self._root.title(f"TraceCanary {__version__}")
         self._root.minsize(880, 640)
         self._contract = tk.StringVar()
         self._input = tk.StringVar()

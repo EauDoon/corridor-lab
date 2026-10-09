@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from typing import Any, Literal, NotRequired, TypedDict
 from urllib.parse import quote
 
+from tracecanary import __version__
 from tracecanary.canonical import canonical_json
 
 Status = Literal["pass", "regression", "unresolved"]
@@ -250,7 +251,12 @@ def render_sarif(batch: BatchReport) -> str:
     payload = {
         "$schema": "https://json.schemastore.org/sarif-2.1.0.json",
         "version": "2.1.0",
-        "runs": [{"tool": {"driver": {"name": "TraceCanary", "informationUri": "https://github.com/EauDoon/operator-labs/tree/main/packages/tracecanary"}}, "results": results}],
+        "runs": [{"tool": {"driver": {
+            "name": "TraceCanary",
+            "informationUri": "https://github.com/EauDoon/operator-labs/tree/main/packages/tracecanary",
+            "version": __version__,
+            "semanticVersion": __version__,
+        }}, "results": results}],
     }
     return canonical_json(payload)
 

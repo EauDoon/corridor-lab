@@ -17,7 +17,6 @@ class MetadataTests(unittest.TestCase):
     def test_gui_entrypoint_and_public_urls_are_declared(self) -> None:
         metadata = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
         project = metadata["project"]
-        self.assertEqual(tracecanary.__version__, project["version"])
         self.assertEqual(project["gui-scripts"]["tracecanary-gui"], "tracecanary.gui:main")
         self.assertEqual(
             project["urls"],
@@ -28,6 +27,13 @@ class MetadataTests(unittest.TestCase):
                 "Documentation": "https://github.com/EauDoon/operator-labs/tree/main/packages/tracecanary#readme",
             },
         )
+
+    def test_version_is_single_sourced_from_the_package(self) -> None:
+        metadata = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
+        self.assertNotIn("version", metadata["project"])
+        self.assertIn("version", metadata["project"]["dynamic"])
+        self.assertEqual(metadata["tool"]["setuptools"]["dynamic"]["version"], {"attr": "tracecanary.__version__"})
+        self.assertRegex(tracecanary.__version__, r"^\d+\.\d+\.\d+$")
 
     def test_license_is_an_spdx_expression_with_its_file(self) -> None:
         project = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))["project"]

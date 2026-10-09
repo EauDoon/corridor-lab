@@ -11,6 +11,7 @@ from decimal import Decimal, DecimalException
 from pathlib import Path
 from typing import Any
 
+from . import __version__
 from .analysis import (
     break_even_check,
     cost_ledger,
@@ -204,6 +205,7 @@ def _add_scenario_argument(parser: argparse.ArgumentParser) -> None:
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="corridorlab", description="Compare fictional payment route scenarios.")
+    parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
     commands = parser.add_subparsers(dest="command", required=True)
 
     starter = commands.add_parser("init", help="create a fictional scenario at a new file path")
