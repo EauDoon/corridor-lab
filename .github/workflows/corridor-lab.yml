@@ -115,3 +115,31 @@ jobs:
           } finally {
             Pop-Location
           }
+      - name: Build and test the sdist outside the checkout
+        shell: pwsh
+        run: |
+          $sourceRoot = Join-Path $env:RUNNER_TEMP "corridor-lab-wheel-source"
+          $sdistDir = Join-Path $env:RUNNER_TEMP "corridor-lab-sdist"
+          $extractRoot = Join-Path $env:RUNNER_TEMP "corridor-lab-sdist-tree"
+          New-Item -ItemType Directory -Force -Path $sdistDir, $extractRoot | Out-Null
+          Push-Location $sourceRoot
+          try {
+            python -c "import sys; from setuptools import build_meta as b; print(b.build_sdist(sys.argv[1]))" $sdistDir
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          } finally {
+            Pop-Location
+          }
+          $sdists = @(Get-ChildItem -LiteralPath $sdistDir -Filter "corridor_lab-*.tar.gz")
+          if ($sdists.Count -ne 1) { throw "Expected exactly one Corridor Lab sdist." }
+          python -c "import sys, tarfile; tarfile.open(sys.argv[1]).extractall(sys.argv[2], filter='data')" $sdists[0].FullName $extractRoot
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $trees = @(Get-ChildItem -LiteralPath $extractRoot -Directory)
+          if ($trees.Count -ne 1) { throw "Expected exactly one extracted Corridor Lab sdist tree." }
+          $env:PYTHONPATH = "src"
+          Push-Location $trees[0].FullName
+          try {
+            python -m unittest discover -s tests -v
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          } finally {
+            Pop-Location
+          }

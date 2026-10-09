@@ -1,0 +1,7 @@
+graft tests
+graft examples
+graft fixtures
+graft schemas
+graft docs
+include TraceCanary.pyw SECURITY.md
+global-exclude *.py[cod]

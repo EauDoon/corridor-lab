@@ -184,6 +184,13 @@ Nothing here is published until the owner approves the release (see
   a different file with the same name, a link, or a folder is still refused.
   Promotion also validates the new manifest before writing it, so a
   manifest the loader would refuse never replaces a loadable one.
+- **Source distributions could not run their own tests.** Both sdists
+  shipped `test*.py` but not the data those tests read (examples, routes,
+  fixtures, schemas, docs) or Corridor Lab's `tests/helpers.py`, which 22
+  test modules import. The extracted suites failed with 22 and 43 problems.
+  Each package now has a `MANIFEST.in` that grafts those directories, and
+  CI builds each sdist outside the checkout, extracts it, and runs its suite
+  on every operating system and Python version. Wheel contents are unchanged.
 - **Corridor Lab variant changes could not name a route id that contains a dot.**
   ``route.ROUTE_ID.FIELD`` split on the first dot, so ``my.route`` was read
   as route id ``my`` and a field of ``route.fx_rate``. Route ids may contain
