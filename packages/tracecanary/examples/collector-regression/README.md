@@ -8,12 +8,12 @@ or connect to an OpenTelemetry Collector.
 
 ## Run
 
-From `packages/tracecanary`, use the pinned contract with the passing baseline
-and candidate export:
+From `packages/tracecanary`, use the example's own pinned contract with the
+passing baseline and candidate export:
 
 ```powershell
 $env:PYTHONPATH = "src"
-python -m tracecanary diff --contract fixtures/v1/contract.json --baseline examples/collector-regression/baseline.json --candidate examples/collector-regression/candidate.json
+python -m tracecanary diff --contract examples/collector-regression/contract.json --baseline examples/collector-regression/baseline.json --candidate examples/collector-regression/candidate.json
 ```
 
 ## Observed output

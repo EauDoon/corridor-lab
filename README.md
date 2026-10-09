@@ -68,7 +68,7 @@ Run it from `packages/tracecanary`:
 
 ```powershell
 $env:PYTHONPATH = "src"
-python -m tracecanary diff --contract fixtures/v1/contract.json --baseline examples/collector-regression/baseline.json --candidate examples/collector-regression/candidate.json
+python -m tracecanary diff --contract examples/collector-regression/contract.json --baseline examples/collector-regression/baseline.json --candidate examples/collector-regression/candidate.json
 ```
 
 See the [TraceCanary collector regression case](packages/tracecanary/examples/collector-regression/README.md)
