@@ -91,6 +91,22 @@ Nothing here is published until the owner approves the release (see
 
 ### Changed
 
+- **TraceCanary campaign population gates count each finding once and
+  cover every input.** The population-gate phase copied every privacy
+  finding that `population_gate` re-detects, so a gated campaign reported
+  each canary leak and forbidden key twice in its totals and saved summary.
+  It also gated only the first named candidate, never gated the batch, and
+  showed a privacy regression as a population failure. The phase now holds
+  one item per named candidate and only `TC013` findings, privacy findings
+  stay in the candidates phase, and batch files are gated in the batch
+  phase. `campaign_version` and `summary_version` are unchanged because the
+  new fields are additive. Summaries saved before this release with a
+  population gate carry the doubled counts, so comparing one with a newer
+  summary reports those duplicates as resolved findings; rerun the older
+  campaign before comparing. The desktop campaign now honours the
+  **Recursive** and **Include paths** batch selectors, as `campaign run` and
+  saved projects already did, and a population minimum that is not a whole
+  number shows `GUI007` guidance instead of being dropped.
 - Corridor Lab `corridor-lab.evidence/v1` documents gain an additive
   `inputs.baseline` key (`null` when no baseline was read). Batch evidence
   describes `inputs.scenario` as each JSON scenario in the scanned directory.

@@ -24,7 +24,7 @@ from tracecanary.canonical import InputError, load_json
 from tracecanary.checker import check_trace
 from tracecanary.comparison import diff_traces
 from tracecanary.contract import Contract, load_contract
-from tracecanary.inspection import control_check, coverage_gate, population_gate
+from tracecanary.inspection import control_check, coverage_gate, population_gate, require_population_gate
 from tracecanary.otlp import OtlpError, validate_trace
 from tracecanary.report import Report, Status, ensure_object_values_absent
 
@@ -110,8 +110,14 @@ def run_campaign(
     else:
         phases["baseline"] = {"status": "skipped", "meaning": "no baseline was configured; candidates run standalone checks"}
 
+    gate_enabled = population_scope is not None and population_minimum is not None
+    if gate_enabled:
+        require_population_gate(population_scope, population_minimum)
     candidate_items: list[dict[str, Any]] = []
+    gate_items: list[dict[str, Any]] = []
+    gate_violations: list[dict[str, Any]] = []
     for index, (label, path) in enumerate(candidates or [], start=1):
+        identifier = f"candidate-{index:04d}"
         try:
             payload = _load_payload(path, contract)
             if minimum_ratio is not None:
@@ -122,17 +128,33 @@ def run_campaign(
                 report = check_trace(contract, payload, mode="campaign")
         except (InputError, ValueError, OtlpError):
             candidate_items.append({
-                "id": f"candidate-{index:04d}", "label": label, "status": "unresolved",
+                "id": identifier, "label": label, "status": "unresolved",
                 "violations": [], "finding_counts": {},
             })
             statuses.append("unresolved")
+            if gate_enabled:
+                # The candidate phase records this file as unresolved, and the
+                # gate cannot be evaluated on it either.
+                gate_items.append({"id": identifier, "label": label, "status": "unresolved"})
             continue
         candidate_items.append({
-            "id": f"candidate-{index:04d}", "label": label, "status": report["status"],
+            "id": identifier, "label": label, "status": report["status"],
             "violations": list(report["violations"]),
             "finding_counts": dict(sorted(Counter(item["code"] for item in report["violations"]).items())),
         })
         statuses.append(report["status"])
+        if gate_enabled:
+            # population_gate repeats the privacy checks. Those findings
+            # already belong to this candidate, so only TC013 is kept here;
+            # copying the rest used to count every privacy finding twice.
+            try:
+                gate = population_gate(contract, payload, population_scope, population_minimum)
+            except (InputError, ValueError, OtlpError):
+                gate_items.append({"id": identifier, "label": label, "status": "unresolved"})
+                continue
+            population = [item for item in gate["violations"] if item["code"] == "TC013"]
+            gate_violations.extend(population)
+            gate_items.append({"id": identifier, "label": label, "status": "regression" if population else "pass"})
     candidate_status = _combined([item["status"] for item in candidate_items]) if candidate_items else "skipped"
     candidate_counts: Counter = Counter()
     for item in candidate_items:
@@ -149,28 +171,27 @@ def run_campaign(
     if candidate_status != "skipped":
         statuses.append(candidate_status)
 
-    if population_scope is not None and population_minimum is not None and candidates:
-        try:
-            gate_payload = _load_payload(candidates[0][1], contract)
-        except (InputError, ValueError, OtlpError):
-            # The candidate phase already recorded this file as unresolved.
-            # Raising here used to skip the gate result and every later phase.
-            phases["population_gate"] = {
-                "status": "unresolved",
-                "meaning": "the first candidate could not be read, so the population gate was not evaluated",
-            }
-            statuses.append("unresolved")
-        else:
-            gate = population_gate(contract, gate_payload, population_scope, population_minimum)
-            phases["population_gate"] = _phase(gate["status"], gate, detail={
-                "scope": population_scope, "minimum": population_minimum,
-                "meaning": "evaluated against the named candidate; population coverage across directories belongs to the batch phase",
-            })
-            statuses.append(gate["status"])
+    if gate_items:
+        gate_status = _combined([item["status"] for item in gate_items])
+        phases["population_gate"] = {
+            "status": gate_status,
+            "items": gate_items,
+            "violations": gate_violations,
+            "finding_counts": dict(sorted(Counter(item["code"] for item in gate_violations).items())),
+            "scope": population_scope,
+            "minimum": population_minimum,
+            "meaning": (
+                "population requirement on every named candidate; privacy findings stay in the candidates phase; "
+                "batch files are gated in the batch phase"
+            ),
+        }
+        statuses.append(gate_status)
 
     if batch is not None:
         batch_report = run_batch(contract, batch, batch_recursive, batch_include_paths, None,
-                                 coverage=True, minimum_ratio=batch_minimum_ratio)
+                                 coverage=True, minimum_ratio=batch_minimum_ratio,
+                                 population_scope=population_scope if gate_enabled else None,
+                                 population_minimum=population_minimum if gate_enabled else None)
         phases["batch"] = {
             "status": batch_report["status"],
             "item_count": len(batch_report["items"]),

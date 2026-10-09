@@ -147,6 +147,41 @@ class BatchWindowBackgroundTests(unittest.TestCase):
                 self.assertEqual(window._result.status, "unresolved")
             root.destroy()
 
+    def test_campaign_tab_honours_recursive_and_rejects_a_non_numeric_minimum(self):
+        import tkinter as tk
+        from tkinter import filedialog, messagebox, ttk
+
+        filedialog.askopenfilename = lambda *a, **k: ""
+        filedialog.askdirectory = lambda *a, **k: ""
+        filedialog.asksaveasfilename = lambda *a, **k: ""
+        messagebox.showerror = lambda *a, **k: None
+
+        with tempfile.TemporaryDirectory() as temporary:
+            root_path = Path(temporary)
+            _write_bundle(root_path)
+            nested = root_path / "exports" / "nested"
+            nested.mkdir(parents=True)
+            (nested / "safe.json").write_bytes((root_path / "safe-export.json").read_bytes())
+            root = tk.Tk()
+            window = TraceCanaryWindow(tk, ttk, filedialog, messagebox)
+            window._contract.set(str(root_path / "contract.json"))
+            window._batch_dir.set(str(root_path / "exports"))
+            window._population_minimum.set("two")
+            window._campaign()
+            self.assertIsNone(window._batch_job)
+            self.assertEqual(json.loads(window._result.json)["violations"][0]["code"], "GUI007")
+            window._population_minimum.set("")
+            window._recursive.set(True)
+            window._campaign()
+            deadline = time.monotonic() + 30
+            while window._batch_job is not None and time.monotonic() < deadline:
+                root.update()
+                time.sleep(0.02)
+            self.assertIsNone(window._batch_job)
+            self.assertEqual(window._result.mode, "campaign")
+            self.assertEqual(json.loads(window._result.json)["phases"]["batch"]["item_count"], 1)
+            root.destroy()
+
 
 if __name__ == "__main__":
     unittest.main()

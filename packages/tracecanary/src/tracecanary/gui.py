@@ -481,9 +481,13 @@ class TraceCanaryWindow:
         control_path = self._control.get().strip() or None
         minimum_ratio = self._minimum_ratio.get().strip() or None
         population_scope = self._population_scope.get()
-        population_text = self._population_minimum.get().strip()
-        population_minimum = int(population_text) if population_text.isdigit() else None
+        population_minimum, guidance = self._controller.campaign_population_minimum(self._population_minimum.get())
+        if guidance is not None:
+            self._apply(guidance)
+            return
         effective_scope = population_scope if population_minimum is not None else None
+        recursive = bool(self._recursive.get())
+        include_paths = bool(self._include_paths.get())
 
         def operation():
             return self._controller.run_campaign_selections(
@@ -495,6 +499,8 @@ class TraceCanaryWindow:
                 minimum_ratio=minimum_ratio,
                 population_scope=effective_scope,
                 population_minimum=population_minimum,
+                batch_recursive=recursive,
+                batch_include_paths=include_paths,
             )
 
         self._run_background(operation, "Status: campaign running (bounded by contract limits); the window stays responsive.", buttons=(self._campaign_button,))

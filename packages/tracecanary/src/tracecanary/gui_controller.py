@@ -524,12 +524,15 @@ class TraceCanaryController:
         minimum_ratio: str | None = None,
         population_scope: str | None = None,
         population_minimum: int | None = None,
+        batch_recursive: bool = False,
+        batch_include_paths: bool = False,
     ) -> GuiResult:
         """Run the regression campaign from plain selector values in one bounded pass.
 
         The window captures all values on the main thread; this method never
         touches Tk. Input paths are recorded on the result so saved summaries
-        and reports stay protected.
+        and reports stay protected. The batch selectors apply exactly as they
+        do for ``campaign run`` and saved projects.
         """
         inputs: list[Path] = [Path(contract_path)]
         if baseline_path and str(baseline_path).strip():
@@ -540,8 +543,6 @@ class TraceCanaryController:
         input_dir = batch
         if input_path and str(input_path).strip() and Path(input_path) not in inputs:
             inputs.append(Path(input_path))
-        if batch_path and str(batch_path).strip():
-            candidates_from_batch = True
 
         def operation() -> tuple[dict[str, Any], str, str]:
             contract = load_contract(Path(contract_path))
@@ -554,6 +555,8 @@ class TraceCanaryController:
                 baseline_payload=baseline_payload,
                 candidates=candidates,
                 batch=batch,
+                batch_recursive=bool(batch_recursive),
+                batch_include_paths=bool(batch_include_paths),
                 minimum_ratio=minimum_ratio,
                 population_scope=population_scope,
                 population_minimum=population_minimum,
@@ -574,6 +577,21 @@ class TraceCanaryController:
         status = campaign["status"]
         return GuiResult(status, _exit_code(status), human, json_text,
                          None, tuple(inputs), input_dir, "campaign")
+
+    def campaign_population_minimum(self, minimum_text: str) -> tuple[int | None, GuiResult | None]:
+        """Parse the campaign's population minimum from the survival-tab entry.
+
+        An empty entry runs the campaign without a population gate. Text that
+        is not a whole number returns the same GUI007 guidance as the
+        Population Gate action instead of being dropped silently.
+        """
+        text = str(minimum_text).strip()
+        if not text:
+            return None, None
+        try:
+            return int(text), None
+        except ValueError:
+            return None, self._guidance("campaign", GUI007, "The population minimum must be a whole number.")
 
     def save_campaign_evidence(self, evidence_path: str | Path, result: GuiResult) -> GuiResult:
         """Explicitly save a value-free evidence document for a finished campaign.
