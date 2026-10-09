@@ -368,8 +368,33 @@ def make_input_ref(project_dir: Path, source: Path, *, folder: bool = False, max
     return InputRef(path=relative.as_posix(), sha256=digest)
 
 
+def _read_bounded(path: Path, max_bytes: int = DEFAULT_MAX_INPUT_BYTES) -> bytes | None:
+    """Read at most one byte past the budget; ``None`` means the file is over it."""
+    with path.open("rb") as handle:
+        raw = handle.read(max_bytes + 1)
+    return None if len(raw) > max_bytes else raw
+
+
+def _holds_identical_copy(target: Path, source: Path) -> bool:
+    """True when ``target`` is a regular file, not a link, with exactly ``source``'s bytes."""
+    try:
+        if not stat_module.S_ISREG(target.lstat().st_mode):
+            return False
+        existing = _read_bounded(target)
+        incoming = _read_bounded(source)
+    except OSError:
+        return False
+    return existing is not None and existing == incoming
+
+
 def _copy_project_input(project_dir: Path, source: Path, *, folder: bool = False, recursive: bool = False) -> Path:
-    """Copy one chosen synthetic input into the project, or use it in place."""
+    """Copy one chosen synthetic input into the project, or use it in place.
+
+    A file whose byte-identical copy the project already holds under the
+    same name reuses that copy, which is the normal flow when promoting the
+    candidate saved by ``project create --candidate``. A different file with
+    the same name is still refused, and folders are never reused.
+    """
     resolved = Path(source).resolve()
     if resolved.is_dir() and not folder:
         raise InputError(f"project input must be a file, not a directory: {source}")
@@ -384,6 +409,8 @@ def _copy_project_input(project_dir: Path, source: Path, *, folder: bool = False
     inputs_dir.mkdir(parents=True, exist_ok=True)
     target = inputs_dir / resolved.name
     if target.exists():
+        if not folder and resolved.is_file() and _holds_identical_copy(target, resolved):
+            return target
         raise InputError(f"project input already exists: {target}")
     if folder:
         if not resolved.is_dir():

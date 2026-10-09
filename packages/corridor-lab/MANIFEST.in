@@ -1,0 +1,7 @@
+graft tests
+graft examples
+graft routes
+graft schemas
+graft docs
+include CorridorLab.pyw SECURITY.md
+global-exclude *.py[cod]

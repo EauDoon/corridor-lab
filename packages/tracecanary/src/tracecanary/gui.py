@@ -12,6 +12,7 @@ import threading
 from collections.abc import Callable, Sequence
 from pathlib import Path
 
+from tracecanary import __version__
 from tracecanary.canonical import InputError
 from tracecanary.gui_controller import (
     EXIT_PASS,
@@ -80,6 +81,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         action="store_true",
         help="exercise the controller and built-in demo without opening a window",
     )
+    parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
     try:
         args = parser.parse_args(argv)
     except SystemExit as exc:
@@ -171,7 +173,8 @@ class TraceCanaryWindow:
         self._result: GuiResult | None = None
         self._view = "human"
         self._root = tk.Tk()
-        self._root.title("TraceCanary")
+        # Windows gui-scripts have no console, so the title shows the version.
+        self._root.title(f"TraceCanary {__version__}")
         self._root.minsize(880, 640)
         self._contract = tk.StringVar()
         self._input = tk.StringVar()
@@ -481,9 +484,13 @@ class TraceCanaryWindow:
         control_path = self._control.get().strip() or None
         minimum_ratio = self._minimum_ratio.get().strip() or None
         population_scope = self._population_scope.get()
-        population_text = self._population_minimum.get().strip()
-        population_minimum = int(population_text) if population_text.isdigit() else None
+        population_minimum, guidance = self._controller.campaign_population_minimum(self._population_minimum.get())
+        if guidance is not None:
+            self._apply(guidance)
+            return
         effective_scope = population_scope if population_minimum is not None else None
+        recursive = bool(self._recursive.get())
+        include_paths = bool(self._include_paths.get())
 
         def operation():
             return self._controller.run_campaign_selections(
@@ -495,6 +502,8 @@ class TraceCanaryWindow:
                 minimum_ratio=minimum_ratio,
                 population_scope=effective_scope,
                 population_minimum=population_minimum,
+                batch_recursive=recursive,
+                batch_include_paths=include_paths,
             )
 
         self._run_background(operation, "Status: campaign running (bounded by contract limits); the window stays responsive.", buttons=(self._campaign_button,))
@@ -612,7 +621,7 @@ class TraceCanaryWindow:
         )
         self._apply(result)
         if result.status == "pass":
-            self._status.set(f"Status: project saved. Settings and synthetic inputs were copied explicitly; reports stay separate.")
+            self._status.set("Status: project saved. Settings and synthetic inputs were copied explicitly; reports stay separate.")
 
     def _review_contract(self) -> None:
         self._apply(self._controller.review_contract(self._contract.get()))

@@ -188,5 +188,59 @@ class ControllerAuthoringTests(unittest.TestCase):
             self.assertEqual(result.exit_code, 1)
 
 
+class CanaryReportTextConflictTests(unittest.TestCase):
+    """A canary that occurs in TraceCanary's own wording is flagged before any run."""
+
+    @staticmethod
+    def _draft(value: str) -> dict:
+        draft = json.loads(json.dumps(bundle()["contract.json"]))
+        draft["canaries"] = [{"label": "synthetic", "category": "test", "value": value}]
+        return draft
+
+    def test_canary_in_report_wording_is_a_value_free_conflict(self):
+        report = review_contract(self._draft("PASS"))
+        self.assertEqual(report["status"], "regression")
+        conflicts = [finding for finding in report["review"]["findings"] if finding["location"] == "canaries[1]"]
+        self.assertEqual(len(conflicts), 1)
+        self.assertEqual(conflicts[0]["severity"], "conflict")
+        self.assertIn("withheld (exit 2, no output)", conflicts[0]["message"])
+        self.assertIn("TCANARY_", conflicts[0]["suggestion"])
+        from tracecanary.report import render_json
+
+        self.assertNotIn("PASS", render_json(report))
+        self.assertNotIn("PASS", render_review_human(report))
+
+    def test_lowercase_status_words_and_identifiers_are_also_wording(self):
+        for value in ("pass", "tracecanary.batch/v1", "not a privacy pass", "finding(s)"):
+            with self.subTest(value=value):
+                locations = [finding["location"] for finding in review_contract(self._draft(value))["review"]["findings"]]
+                self.assertIn("canaries[1]", locations)
+
+    def test_conflict_ordinal_is_one_based_and_names_only_the_colliding_canary(self):
+        draft = self._draft("TCANARY_UNIQUE_9b1d2e4f")
+        draft["canaries"].append({"label": "second", "category": "test", "value": "REGRESSION"})
+        locations = [finding["location"] for finding in review_contract(draft)["review"]["findings"]]
+        self.assertEqual(locations, ["canaries[2]"])
+
+    def test_unique_synthetic_canaries_raise_no_conflict(self):
+        report = review_contract(self._draft("TCANARY_UNIQUE_3f9a0c12"))
+        self.assertEqual(report["status"], "pass")
+        self.assertEqual(report["review"]["findings"], [])
+        self.assertEqual(review_contract(bundle()["contract.json"])["status"], "pass")
+        self.assertEqual(review_contract(empty_template())["status"], "pass")
+
+    def test_review_whose_own_text_contains_the_canary_is_withheld(self):
+        from tracecanary.cli import main
+
+        with tempfile.TemporaryDirectory() as temporary:
+            draft = Path(temporary) / "draft.json"
+            draft.write_text(json.dumps(self._draft("TraceCanary")), encoding="utf-8")
+            for output_format in ("human", "json"):
+                out, err = StringIO(), StringIO()
+                with self.subTest(output_format=output_format), redirect_stdout(out), redirect_stderr(err):
+                    self.assertEqual(main(["contract", "review", str(draft), "--format", output_format]), 2)
+                self.assertEqual(out.getvalue() + err.getvalue(), "")
+
+
 if __name__ == "__main__":
     unittest.main()

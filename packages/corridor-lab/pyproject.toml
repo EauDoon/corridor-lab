@@ -4,18 +4,20 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "corridor-lab"
-version = "0.2.0"
+dynamic = ["version"]
 description = "Deterministic comparison of synthetic cross-border payment routes."
 readme = "README.md"
 requires-python = ">=3.11"
-license = {text = "Apache-2.0"}
+license = "MIT"
+license-files = ["LICENSE"]
 authors = [{name = "EauDoon"}]
 classifiers = [
   "Development Status :: 3 - Alpha",
-  "License :: OSI Approved :: Apache Software License",
   "Programming Language :: Python :: 3",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
   "Topic :: Office/Business :: Financial",
 ]
 
@@ -33,6 +35,11 @@ Documentation = "https://github.com/EauDoon/operator-labs/tree/main/packages/cor
 
 [tool.setuptools]
 package-dir = {"" = "src"}
+
+# __version__ in the package is the single source of truth; setuptools reads
+# the literal statically, without importing the package.
+[tool.setuptools.dynamic]
+version = {attr = "corridor_lab.__version__"}
 
 [tool.setuptools.packages.find]
 where = ["src"]

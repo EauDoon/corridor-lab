@@ -21,7 +21,6 @@ from .canonical import (
     require_decimal,
     require_identifier,
 )
-from .scenario import parse_scenario
 
 TRANSACTION_CHANGE_FIELDS = ("send_amount", "deadline_hours", "volume_per_period")
 ROUTE_CHANGE_FIELDS = (
@@ -86,7 +85,7 @@ def validate_changes(changes: Any) -> tuple[dict[str, str], dict[str, dict[str, 
         if not isinstance(raw, dict):
             raise InputError("variant changes.routes must be an object keyed by route_id")
         for route_id, fields in raw.items():
-            require_identifier(route_id, f"changes.routes route_id")
+            require_identifier(route_id, "changes.routes route_id")
             if not isinstance(fields, dict) or not fields:
                 raise InputError(f"changes.routes[{route_id}] must be a non-empty object")
             route_fields: dict[str, str] = {}
@@ -245,7 +244,8 @@ def chain_changes(variants: dict[str, DerivedVariant], name: str, base_raw: dict
             target = cumulative_routes.setdefault(route_id, {})
             for field, value in fields.items():
                 target[field] = value
-    end_state = apply_variant_chain(variants, name, base_raw)
+    # Materializing the chain validates it: an unknown route fails here.
+    apply_variant_chain(variants, name, base_raw)
     rows: list[dict[str, str]] = []
     transaction = base_raw.get("transaction", {})
     for field in sorted(cumulative, key=TRANSACTION_CHANGE_FIELDS.index):
@@ -337,7 +337,7 @@ def variant_diff_report(variants: dict[str, DerivedVariant], name: str, base_raw
 
 
 METRIC_LABELS = (
-    ("expected_recipient_amount", "conditional recipient amount", "amount"),
+    ("expected_recipient_amount", "expected recipient amount (failure outcomes contribute zero)", "amount"),
     ("expected_sender_cost", "expected sender cost", "cost"),
     ("probability_by_deadline", "successful by deadline probability", "probability"),
     ("tail_completion_time_hours", "tail completion time", "hours"),

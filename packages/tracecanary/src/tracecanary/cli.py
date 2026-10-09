@@ -5,10 +5,10 @@ from __future__ import annotations
 import argparse
 import sys
 from collections.abc import Sequence
-from fractions import Fraction
 from pathlib import Path
 from typing import Any
 
+from tracecanary import __version__
 from tracecanary.canonical import InputError, load_json
 from tracecanary.batching import _load_trace, run_batch
 from tracecanary.checker import check_trace
@@ -17,7 +17,6 @@ from tracecanary.contract import Contract, ContractError, load_contract
 from tracecanary.coverage import coverage_report
 from tracecanary.fixture import write_bundle
 from tracecanary.inspection import (
-    _parse_minimum_ratio,
     control_check,
     coverage_diff,
     coverage_gate,
@@ -26,18 +25,15 @@ from tracecanary.inspection import (
     population_gate,
     retention_matrix,
 )
-from tracecanary.otlp import OtlpError, validate_trace
+from tracecanary.otlp import OtlpError
 from tracecanary.output import protect_inputs, write_report
 from tracecanary.project import build_manifest, load_project, write_project
 from tracecanary.report import (
-    BatchItem,
     BatchReport,
     Report,
     Status,
     UnsafeReportError,
-    Violation,
     build_report,
-    ensure_object_values_absent,
     ensure_text_values_absent,
     ensure_values_absent,
     render_batch_human,
@@ -88,6 +84,7 @@ def build_parser() -> argparse.ArgumentParser:
         epilog=_EXIT_STATUS_HELP,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
+    parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
     commands = parser.add_subparsers(dest="command", required=True, parser_class=_ArgumentParser)
     validate = commands.add_parser("validate", help="validate a TraceCanary contract")
     validate.add_argument("contract", type=_cli_path, help="TraceCanary contract JSON file")
@@ -419,12 +416,13 @@ def _project_promote_baseline(directory: Path, candidate: Path) -> int:
         raise InputError("baseline promotion requires a candidate that satisfies the contract; failing candidates are never blessed")
     project_dir = directory.resolve() if directory.is_dir() else directory.parent.resolve()
     target = _copy_project_input(project_dir, candidate)
-    manifest = parse_manifest(load_json(loaded.path, max_bytes=contract.max_input_bytes, max_depth=contract.max_nesting))
     document = load_json(loaded.path, max_bytes=contract.max_input_bytes, max_depth=contract.max_nesting)
     from tracecanary.project import DEFAULT_MAX_INPUT_BYTES
 
     document["baseline"] = {"path": manifest_text_relative(project_dir, target),
                             "sha256": fingerprint_file(target, max_bytes=DEFAULT_MAX_INPUT_BYTES)}
+    # Never replace a loadable manifest with one the loader would refuse.
+    parse_manifest(document)
     write_report(loaded.path, canonical_json_text(document))
     print(f"Baseline promoted from {candidate.name}: the candidate satisfied the contract first.")
     return EXIT_PASS
@@ -443,7 +441,7 @@ def canonical_json_text(value: Any) -> str:
 
 
 def _campaign(args: Any) -> int:
-    from tracecanary.campaign import CAMPAIGN_VERSION, campaign_summary, compare_summaries, render_comparison_human, run_campaign
+    from tracecanary.campaign import campaign_summary, compare_summaries, render_comparison_human, run_campaign
     from tracecanary.project import load_project
     from tracecanary.report import ensure_text_values_absent
 
@@ -484,13 +482,18 @@ def _campaign(args: Any) -> int:
                 population_scope=population_scope,
                 population_minimum=population_minimum,
             )
+            canary_values = tuple(canary.value for canary in contract.canaries)
             output = render_json(campaign)
-            ensure_text_values_absent(output, tuple(canary.value for canary in contract.canaries))
-            _emit(output, args.output if hasattr(args, "output") else None)
+            ensure_text_values_absent(output, canary_values)
             summary_path = args.save_summary
+            summary_text = ""
             if summary_path is not None:
-                summary = campaign_summary(campaign)
-                summary_text = render_json(summary)
+                # Check the summary before anything is emitted, so a withheld
+                # summary never follows a printed campaign report.
+                summary_text = render_json(campaign_summary(campaign))
+                ensure_text_values_absent(summary_text, canary_values)
+            _emit(output, args.output if hasattr(args, "output") else None)
+            if summary_path is not None:
                 sources = [contract_path, control, baseline, batch, *(path for _, path in candidates)]
                 protect_inputs(summary_path, [path for path in sources if path is not None], loaded.path.parent)
                 protect_inputs(summary_path, [], batch)
@@ -506,6 +509,9 @@ def _campaign(args: Any) -> int:
             _emit(output, args.output)
             return EXIT_PASS
         raise InputError(f"unsupported campaign command: {command}")
+    except UnsafeReportError:
+        # Withheld output stays silent: any explanation could contain the value.
+        return EXIT_UNRESOLVED
     except (ContractError, InputError, OtlpError, ValueError) as exc:
         print(f"TraceCanary: UNRESOLVED: {exc}", file=sys.stderr)
         return EXIT_UNRESOLVED
@@ -518,7 +524,7 @@ MAX_CAMPAIGN_SUMMARY_BYTES = 1_000_000
 
 
 def _contract_authoring(args: Any) -> int:
-    from tracecanary.authoring import empty_template, review_contract, validate_draft
+    from tracecanary.authoring import draft_canary_values, empty_template, review_contract, validate_draft
     from tracecanary.canonical import canonical_json
 
     command = args.contract_command
@@ -528,6 +534,7 @@ def _contract_authoring(args: Any) -> int:
             protect_inputs(args.output, [args.contract_path])
             report = review_contract(raw)
             output = render_json(report) if args.format == "json" else render_contract_review_human(report)
+            ensure_text_values_absent(output, draft_canary_values(raw))
             _emit(output, args.output)
             return _status_exit(report["status"])
         if command == "template":
@@ -539,6 +546,8 @@ def _contract_authoring(args: Any) -> int:
             print(f"Synthetic contract template written to {args.output}; replace the placeholder canary value before use.")
             return EXIT_PASS
         raise InputError(f"unsupported contract command: {command}")
+    except UnsafeReportError:
+        return EXIT_UNRESOLVED
     except (ContractError, InputError, ValueError) as exc:
         print(f"TraceCanary: UNRESOLVED: {exc}", file=sys.stderr)
         return EXIT_UNRESOLVED
@@ -554,12 +563,6 @@ def render_contract_review_human(report: dict[str, Any]) -> str:
     from tracecanary.authoring import render_review_human
 
     return render_review_human(report)
-
-
-def _load_trace(path: Path, contract: Contract) -> dict[str, Any]:
-    payload = load_json(path, max_bytes=contract.max_input_bytes, max_depth=contract.max_nesting)
-    validate_trace(payload)
-    return payload
 
 
 def _run_batch(contract: Contract, input_dir: Path, recursive: bool, include_paths: bool, baseline: dict[str, Any] | None = None, *, coverage: bool = False, minimum_ratio: str | None = None, population_scope: str | None = None, population_minimum: int | None = None) -> BatchReport:

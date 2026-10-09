@@ -41,3 +41,26 @@ class CliWorkflowTests(unittest.TestCase):
             self.assertEqual(main(["diff", str(source), "--baseline", str(source), "--output", str(source)]), 2)
             self.assertEqual(main(["batch", str(root), "--output", str(root / "batch.json")]), 2)
             self.assertEqual(source.read_bytes(), before)
+
+
+class ReportFormatEnvironmentTests(unittest.TestCase):
+    def test_format_environment_does_not_break_project_commands_without_reports(self):
+        from unittest.mock import patch
+
+        from helpers import route, scenario
+
+        with tempfile.TemporaryDirectory() as directory, contextlib.redirect_stdout(io.StringIO()), \
+                contextlib.redirect_stderr(io.StringIO()) as err, patch.dict("os.environ", {"CORRIDOR_LAB_FORMAT": "yaml"}):
+            root = Path(directory)
+            source = root / "scenario.json"
+            source.write_text(json.dumps(scenario(routes=[route("fictional-embedded")])), encoding="utf-8")
+            project = root / "project"
+            project.mkdir()
+            self.assertEqual(main(["project", "create", "--directory", str(project), "--project-id", "fictional",
+                                   "--scenario", str(source)]), 0)
+            self.assertEqual(main(["project", "validate", str(project)]), 0)
+            self.assertEqual(main(["project", "open", str(project)]), 0)
+            self.assertEqual(err.getvalue(), "")
+            # A command that does emit a report still rejects the unsupported default.
+            self.assertEqual(main(["evaluate", str(source)]), 2)
+            self.assertIn("CORRIDOR_LAB_FORMAT=yaml is not supported", err.getvalue())

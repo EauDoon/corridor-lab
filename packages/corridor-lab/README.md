@@ -38,10 +38,14 @@ stress-grid also accept `--format csv` or `--format markdown`. Pareto and batch
 accept JSON or Markdown but not CSV. Use `--output FILE` to write a report, and
 `--evidence FILE` to additionally write a self-explaining evidence document
 (the report verbatim plus the tool version, analysis identity, declared input
-sources, and standing limitations); evidence paths keep the same input-collision
-protection as reports. If `--format` is omitted, it is inferred from `--output`
-(`.json`, `.md` / `.markdown`, `.csv`) or from `CORRIDOR_LAB_FORMAT`; otherwise
-JSON is the default. An explicit `--format` always wins.
+sources, and standing limitations). The input sources name every scenario a
+robustness review read, the baseline of a `diff`, and the directory a `batch`
+scanned. Evidence paths keep the same input-collision protection as reports,
+and both destinations are checked before anything is written. If `--format` is
+omitted, it is inferred from `--output` (`.json`, `.md` / `.markdown`, `.csv`)
+or from `CORRIDOR_LAB_FORMAT`; otherwise JSON is the default. An explicit
+`--format` always wins. `CORRIDOR_LAB_FORMAT` only sets a report default:
+`project` subcommands that print no report ignore it.
 
 ## Inspect declared cost, timing, and loss
 
@@ -191,7 +195,7 @@ python -m unittest discover -s tests -v
 python -m compileall -q src
 ```
 
-Licensed under [Apache-2.0](LICENSE).
+Licensed under the [MIT License](LICENSE).
 
 ## Transaction what-if analysis
 

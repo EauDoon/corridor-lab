@@ -41,10 +41,15 @@ def control_check(contract: Contract, payload):
     return _privacy_checked(contract, report)
 
 
-def population_gate(contract: Contract, payload, scope: str, minimum: int):
-    """Require an explicit population while preserving all existing privacy checks."""
+def require_population_gate(scope: str, minimum: int) -> None:
+    """Reject an unsupported population scope or minimum before any input is read."""
     if scope not in ("resource", "scope", "span", "event", "link") or type(minimum) is not int or not 1 <= minimum <= 1_000_000:
         raise InputError("population gate requires a supported scope and integer minimum from 1 to 1000000")
+
+
+def population_gate(contract: Contract, payload, scope: str, minimum: int):
+    """Require an explicit population while preserving all existing privacy checks."""
+    require_population_gate(scope, minimum)
     base = coverage_report(contract, payload)
     observed = base["coverage"]["entities"][scope]
     issues = [Violation(**item) for item in base["violations"]]

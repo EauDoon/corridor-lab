@@ -147,3 +147,82 @@ class ReportTests(unittest.TestCase):
                 atomic_write_text(target, "new\n")
             self.assertEqual(target.read_text(encoding="utf-8"), "old\n")
             self.assertEqual(list(Path(directory).glob("*.tmp")), [])
+
+
+class ProjectRunMarkdownTests(unittest.TestCase):
+    """`project run` and `project run-variants` advertise Markdown output."""
+
+    def _project(self, root: Path) -> Path:
+        import json
+        from contextlib import redirect_stdout
+        from io import StringIO
+
+        from corridor_lab.cli import main as cli_main
+
+        inputs = root / "inputs"
+        inputs.mkdir()
+        (inputs / "scenario.json").write_text(json.dumps(scenario(routes=[route("fictional-embedded")])), encoding="utf-8")
+        project = root / "project"
+        project.mkdir()
+        with redirect_stdout(StringIO()):
+            self.assertEqual(cli_main([
+                "project", "create", "--directory", str(project), "--project-id", "fictional-markdown",
+                "--scenario", str(inputs / "scenario.json"),
+                "--experiment", "deadline-sweep:transaction-sweep:parameter=deadline_hours;values=1,8",
+                "--experiment", "fee-sensitivity:sensitivity:parameter=fx_spread_bps;values=10,50",
+            ]), 0)
+            self.assertEqual(cli_main(["project", "add-variant", str(project), "--variant", "tight",
+                                       "--changes", "transaction.deadline_hours=1"]), 0)
+        return project
+
+    def _run(self, argv: list[str]) -> tuple[int, str, str]:
+        from contextlib import redirect_stderr, redirect_stdout
+        from io import StringIO
+
+        from corridor_lab.cli import main as cli_main
+
+        out, err = StringIO(), StringIO()
+        with redirect_stdout(out), redirect_stderr(err):
+            code = cli_main(argv)
+        return code, out.getvalue(), err.getvalue()
+
+    def test_project_run_renders_markdown_for_every_experiment(self):
+        with TemporaryDirectory() as directory:
+            project = self._project(Path(directory))
+            code, out, err = self._run(["project", "run", str(project), "--format", "markdown"])
+            self.assertEqual((code, err), (0, ""))
+            self.assertTrue(out.startswith("# Corridor Lab project run\n"))
+            self.assertIn("| Item | Experiment | Analysis | Status |", out)
+            self.assertIn("| experiment-0001 | deadline-sweep | transaction-sweep | pass |", out)
+            self.assertIn("| experiment-0002 | fee-sensitivity | sensitivity | pass |", out)
+            self.assertIn("## experiment-0001: deadline-sweep", out)
+            self.assertIn("### Corridor Lab report", out)
+            self.assertIn("#### How to read this sensitivity report", out)
+            self.assertNotIn("\n# Corridor Lab report", out)
+
+    def test_project_run_output_suffix_and_environment_select_markdown(self):
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            project = self._project(root)
+            target = root / "run.md"
+            code, _, err = self._run(["project", "run", str(project), "--output", str(target)])
+            self.assertEqual((code, err), (0, ""))
+            self.assertTrue(target.read_text(encoding="utf-8").startswith("# Corridor Lab project run\n"))
+            with patch.dict("os.environ", {"CORRIDOR_LAB_FORMAT": "markdown"}):
+                code, out, err = self._run(["project", "run", str(project)])
+            self.assertEqual((code, err), (0, ""))
+            self.assertIn("deadline-sweep", out)
+
+    def test_project_run_variants_renders_markdown(self):
+        with TemporaryDirectory() as directory:
+            project = self._project(Path(directory))
+            code, out, err = self._run(["project", "run-variants", str(project), "--experiment", "deadline-sweep",
+                                        "--format", "markdown"])
+            self.assertEqual((code, err), (0, ""))
+            self.assertIn("| Item | Variant | Experiment | Status |", out)
+            self.assertIn("| variant-0001 | tight | deadline-sweep | pass |", out)
+            self.assertIn("## variant-0001: tight", out)
+
+    def test_markdown_rejects_a_report_kind_it_cannot_render(self):
+        with self.assertRaisesRegex(ValueError, "no Markdown renderer for x/v1"):
+            render_report({"report_version": "x/v1"}, "markdown")

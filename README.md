@@ -1,12 +1,13 @@
 # Operator Labs
 
-[![build](https://img.shields.io/github/actions/workflow/status/EauDoon/operator-labs/corridor-lab.yml?branch=main)](https://github.com/EauDoon/operator-labs/actions)
+[![Corridor Lab CI](https://img.shields.io/github/actions/workflow/status/EauDoon/operator-labs/corridor-lab.yml?branch=main&label=Corridor%20Lab%20CI)](https://github.com/EauDoon/operator-labs/actions/workflows/corridor-lab.yml)
+[![TraceCanary CI](https://img.shields.io/github/actions/workflow/status/EauDoon/operator-labs/tracecanary.yml?branch=main&label=TraceCanary%20CI)](https://github.com/EauDoon/operator-labs/actions/workflows/tracecanary.yml)
 [![license](https://img.shields.io/github/license/EauDoon/operator-labs)](https://github.com/EauDoon/operator-labs/blob/main/LICENSE)
 [![last commit](https://img.shields.io/github/last-commit/EauDoon/operator-labs)](https://github.com/EauDoon/operator-labs)
 
 Operator Labs contains two independent, offline Python 3.11+ tools. Each keeps
 its original distribution name, command-line and desktop entry points,
-documentation, tests, and Apache-2.0 license.
+documentation, and tests. Both are released under the repository's MIT license.
 
 | Package | Purpose |
 |---|---|
@@ -68,7 +69,7 @@ Run it from `packages/tracecanary`:
 
 ```powershell
 $env:PYTHONPATH = "src"
-python -m tracecanary diff --contract fixtures/v1/contract.json --baseline examples/collector-regression/baseline.json --candidate examples/collector-regression/candidate.json
+python -m tracecanary diff --contract examples/collector-regression/contract.json --baseline examples/collector-regression/baseline.json --candidate examples/collector-regression/candidate.json
 ```
 
 See the [TraceCanary collector regression case](packages/tracecanary/examples/collector-regression/README.md)

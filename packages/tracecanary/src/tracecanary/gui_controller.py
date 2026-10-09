@@ -10,7 +10,7 @@ from typing import Any
 import json
 
 from tracecanary import __version__
-from tracecanary.authoring import empty_template, render_review_human, review_contract, validate_draft
+from tracecanary.authoring import draft_canary_values, empty_template, render_review_human, review_contract, validate_draft
 from tracecanary.batching import run_batch
 from tracecanary.campaign import (
     campaign_summary,
@@ -116,10 +116,15 @@ class TraceCanaryController:
         try:
             raw = load_json(Path(contract_path), max_bytes=5_000_000, max_depth=100)
             report = review_contract(raw)
+            human = render_review_human(report)
+            json_text = render_json(report)
+            ensure_text_values_absent(human + json_text, draft_canary_values(raw))
+        except UnsafeReportError:
+            return GuiResult("unresolved", EXIT_UNRESOLVED, "", "", mode="contract-review")
         except (ContractError, InputError, OSError, ValueError) as exc:
             return self._guidance("contract-review", GUI001, f"The contract could not be reviewed. ({exc})")
         status = report["status"]
-        return GuiResult(status, _exit_code(status), render_review_human(report), render_json(report),
+        return GuiResult(status, _exit_code(status), human, json_text,
                          None, (Path(contract_path),), None, "contract-review")
 
     def contract_template_text(self) -> str:
@@ -462,7 +467,6 @@ class TraceCanaryController:
             if not project_dir.is_dir():
                 raise InputError(f"the project destination must be an existing directory: {destination}")
             placed: dict[str, Path] = {}
-            copied: dict[Path, Path] = {}
             copied_sources: dict[Path, Path] = {}
 
             def place(source: Path | None, *, folder: bool = False, recursive: bool = False) -> Path | None:
@@ -519,12 +523,15 @@ class TraceCanaryController:
         minimum_ratio: str | None = None,
         population_scope: str | None = None,
         population_minimum: int | None = None,
+        batch_recursive: bool = False,
+        batch_include_paths: bool = False,
     ) -> GuiResult:
         """Run the regression campaign from plain selector values in one bounded pass.
 
         The window captures all values on the main thread; this method never
         touches Tk. Input paths are recorded on the result so saved summaries
-        and reports stay protected.
+        and reports stay protected. The batch selectors apply exactly as they
+        do for ``campaign run`` and saved projects.
         """
         inputs: list[Path] = [Path(contract_path)]
         if baseline_path and str(baseline_path).strip():
@@ -535,34 +542,55 @@ class TraceCanaryController:
         input_dir = batch
         if input_path and str(input_path).strip() and Path(input_path) not in inputs:
             inputs.append(Path(input_path))
-        if batch_path and str(batch_path).strip():
-            candidates_from_batch = True
 
-        def operation() -> dict[str, Any]:
+        def operation() -> tuple[dict[str, Any], str, str]:
             contract = load_contract(Path(contract_path))
             control_payload = self._load_trace(Path(control_path), contract) if control_path and str(control_path).strip() else None
             baseline_payload = self._load_trace(Path(baseline_path), contract) if baseline_path and str(baseline_path).strip() else None
             candidates = [(Path(input_path).name, Path(input_path))] if input_path and str(input_path).strip() else []
-            return run_campaign_engine(
+            campaign = run_campaign_engine(
                 contract,
                 control_payload=control_payload,
                 baseline_payload=baseline_payload,
                 candidates=candidates,
                 batch=batch,
+                batch_recursive=bool(batch_recursive),
+                batch_include_paths=bool(batch_include_paths),
                 minimum_ratio=minimum_ratio,
                 population_scope=population_scope,
                 population_minimum=population_minimum,
             )
+            # The engine checks the campaign object; the rendered texts carry
+            # fixed wording of their own, so they are checked as emitted.
+            human = render_campaign_human(campaign)
+            json_text = render_json(campaign)
+            ensure_text_values_absent(human + json_text, tuple(canary.value for canary in contract.canaries))
+            return campaign, human, json_text
 
         try:
-            campaign = operation()
+            campaign, human, json_text = operation()
         except UnsafeReportError:
             return GuiResult("unresolved", EXIT_UNRESOLVED, "", "", None, tuple(inputs), input_dir, "campaign")
         except (ContractError, InputError, OtlpError, OSError, ValueError) as exc:
             return self._guidance("campaign", GUI005, f"The campaign could not run. ({exc})")
         status = campaign["status"]
-        return GuiResult(status, _exit_code(status), render_campaign_human(campaign), render_json(campaign),
+        return GuiResult(status, _exit_code(status), human, json_text,
                          None, tuple(inputs), input_dir, "campaign")
+
+    def campaign_population_minimum(self, minimum_text: str) -> tuple[int | None, GuiResult | None]:
+        """Parse the campaign's population minimum from the survival-tab entry.
+
+        An empty entry runs the campaign without a population gate. Text that
+        is not a whole number returns the same GUI007 guidance as the
+        Population Gate action instead of being dropped silently.
+        """
+        text = str(minimum_text).strip()
+        if not text:
+            return None, None
+        try:
+            return int(text), None
+        except ValueError:
+            return None, self._guidance("campaign", GUI007, "The population minimum must be a whole number.")
 
     def save_campaign_evidence(self, evidence_path: str | Path, result: GuiResult) -> GuiResult:
         """Explicitly save a value-free evidence document for a finished campaign.

@@ -46,7 +46,6 @@ from .variants import (
     DerivedVariant,
     apply_variant_chain as materialize_variant,
     parse_derived_variant,
-    validate_changes,
     validate_variant_graph,
     variant_comparison,
     variant_diff_report,
@@ -174,6 +173,10 @@ class CorridorGuiController:
         self.project_base_raw: dict | None = None
         self.last_report_inputs: tuple[Path, ...] = ()
         self.last_report_scanned_dirs: tuple[Path, ...] = ()
+        # Provenance of the current report beyond the active scenario, so
+        # evidence names a diff baseline or a batch directory truthfully.
+        self.last_report_baseline = ""
+        self.last_report_directory = ""
 
     def _report_inputs(self, *, include_routes: bool) -> tuple[tuple[Path, ...], tuple[Path, ...]]:
         inputs: list[Path] = []
@@ -198,6 +201,8 @@ class CorridorGuiController:
         base_inputs, base_scanned = self._report_inputs(include_routes=routes_inputs)
         self.last_report_inputs = tuple(base_inputs) + tuple(extra_inputs)
         self.last_report_scanned_dirs = base_scanned
+        self.last_report_baseline = ""
+        self.last_report_directory = ""
         self.last_error = None
         return ActionResult(report, None)
 
@@ -309,7 +314,7 @@ class CorridorGuiController:
         never converted through binary floats.
         """
         try:
-            scenario = self._require_scenario()
+            self._require_scenario()
             if self.scenario_raw is None:
                 raise InputError("no editable scenario data is available")
             raw = copy.deepcopy(self.scenario_raw)
@@ -450,7 +455,9 @@ class CorridorGuiController:
             baseline_raw = read_bounded_bytes(path)
             baseline = parse_scenario(parse_json_bytes(baseline_raw))
             self.baseline_file = path
-            return self._success(diff_scenarios(baseline, scenario), routes_inputs=False, extra_inputs=(path,))
+            result = self._success(diff_scenarios(baseline, scenario), routes_inputs=False, extra_inputs=(path,))
+            self.last_report_baseline = str(path)
+            return result
         except (InputError, OSError, ValueError, DecimalException) as exc:
             return self._failure(exc)
 
@@ -587,7 +594,7 @@ class CorridorGuiController:
     def apply_variant(self, name: str) -> ActionResult:
         """Install a derived variant as the active scenario (in memory, unsaved)."""
         try:
-            scenario = self._require_scenario()
+            self._require_scenario()
             if self.scenario_raw is None:
                 raise InputError("the active scenario has no editable baseline data; load it from a file")
             if name not in self.derived_variants:
@@ -662,6 +669,7 @@ class CorridorGuiController:
             return self._failure(exc)
         result = self._success(report, routes_inputs=False)
         self.last_report_scanned_dirs = tuple(self.last_report_scanned_dirs) + (Path(directory),)
+        self.last_report_directory = str(directory).strip()
         return result
 
     def _constraint_list(self, constraints_text: str) -> list[str]:
@@ -800,6 +808,8 @@ class CorridorGuiController:
                 scenario_source=self.scenario_source,
                 routes_source=self.routes_source,
                 project_source=self.project_source or "",
+                baseline_source=self.last_report_baseline,
+                scenario_directory=self.last_report_directory,
                 notes=notes,
             )
             target = write_evidence(path, document, inputs=self.last_report_inputs, scanned_dirs=self.last_report_scanned_dirs)

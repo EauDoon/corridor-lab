@@ -24,7 +24,6 @@ class CampaignEngineTests(unittest.TestCase):
         cls._temporary = tempfile.TemporaryDirectory()
         cls.root = Path(cls._temporary.name)
         cls.files = bundle()
-        cls.contract = parse_contract = None
         from tracecanary.contract import parse_contract
 
         cls.contract = parse_contract(cls.files["contract.json"])
@@ -219,11 +218,11 @@ class ControllerCampaignTests(unittest.TestCase):
                          "--baseline", str(project_root / "safe-export.json")])
             self.assertEqual(code, 0)
             code = main(["campaign", "run", str(project_root), "--control", str(project_root / "positive-control.json"),
-                         "--save-summary", str(self.root / "cli-summary.json")])
+                         "--save-summary", str(summary_path)])
         self.assertEqual(code, 1)
-        saved = json.loads((self.root / "cli-summary.json").read_text(encoding="utf-8"))
+        saved = json.loads(summary_path.read_text(encoding="utf-8"))
         self.assertEqual(saved["campaign_status"], "regression")
-        self.assertNotIn("TCANARY", (self.root / "cli-summary.json").read_text(encoding="utf-8"))
+        self.assertNotIn("TCANARY", summary_path.read_text(encoding="utf-8"))
         self.assertEqual(saved["phases"]["candidates"]["finding_counts"], {"TC001": 1, "TC002": 1})
 
     def test_summary_save_refuses_inputs_and_project_directories(self):
@@ -260,6 +259,109 @@ class ControllerCampaignTests(unittest.TestCase):
         candidates = json.loads(comparison.json)["phases"]["candidates"]
         self.assertEqual(sorted(candidates["resolved_findings"]), ["TC001", "TC002"])
         self.assertIn("no entity identity", comparison.human)
+
+
+class CampaignPopulationGateTests(unittest.TestCase):
+    """The population gate covers every input once and never re-counts privacy findings."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls._temporary = tempfile.TemporaryDirectory()
+        cls.root = Path(cls._temporary.name)
+        cls.files = bundle()
+        from tracecanary.contract import parse_contract
+
+        cls.contract = parse_contract(cls.files["contract.json"])
+        for name, data in cls.files.items():
+            (cls.root / name).write_text(json.dumps(data), encoding="utf-8", newline="\n")
+
+    @classmethod
+    def tearDownClass(cls):
+        cls._temporary.cleanup()
+
+    def test_privacy_findings_are_counted_once_with_a_gate(self):
+        plain = run_campaign(self.contract, candidates=[("leak.json", self.root / "leaked-prompt.json")])
+        gated = run_campaign(self.contract, candidates=[("leak.json", self.root / "leaked-prompt.json")],
+                             population_scope="span", population_minimum=1)
+        self.assertEqual(plain["summary"]["finding_counts"], {"TC001": 1, "TC002": 1})
+        self.assertEqual(gated["summary"]["finding_counts"], {"TC001": 1, "TC002": 1})
+        gate = gated["phases"]["population_gate"]
+        # A leaking candidate with an adequate population passes the population requirement.
+        self.assertEqual(gate["status"], "pass")
+        self.assertEqual(gate["finding_counts"], {})
+        self.assertEqual(gate["violations"], [])
+        self.assertEqual(gated["status"], "regression")
+        summary = campaign_summary(gated)
+        self.assertEqual(summary["phases"]["population_gate"]["finding_counts"], {})
+        self.assertEqual(summary["phases"]["candidates"]["finding_counts"], {"TC001": 1, "TC002": 1})
+
+    def test_a_small_population_yields_tc013_exactly_once(self):
+        campaign = run_campaign(self.contract, candidates=[("safe.json", self.root / "safe-export.json")],
+                                population_scope="span", population_minimum=2)
+        gate = campaign["phases"]["population_gate"]
+        self.assertEqual(gate["status"], "regression")
+        self.assertEqual(gate["finding_counts"], {"TC013": 1})
+        self.assertEqual([item["code"] for item in gate["violations"]], ["TC013"])
+        self.assertEqual(campaign["summary"]["finding_counts"], {"TC013": 1})
+        self.assertEqual(campaign["phases"]["candidates"]["status"], "pass")
+        self.assertEqual(campaign["status"], "regression")
+
+    def test_every_named_candidate_is_gated(self):
+        campaign = run_campaign(
+            self.contract,
+            candidates=[("two-spans.json", self.root / "sparse-retention.json"),
+                        ("one-span.json", self.root / "safe-export.json")],
+            population_scope="span",
+            population_minimum=2,
+        )
+        items = campaign["phases"]["population_gate"]["items"]
+        self.assertEqual([(item["id"], item["label"], item["status"]) for item in items],
+                         [("candidate-0001", "two-spans.json", "pass"), ("candidate-0002", "one-span.json", "regression")])
+        self.assertEqual(campaign["phases"]["population_gate"]["status"], "regression")
+
+    def test_batch_files_are_gated_in_the_batch_phase(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            batch = Path(temporary)
+            (batch / "one-span.json").write_text(json.dumps(self.files["safe-export.json"]), encoding="utf-8")
+            ungated = run_campaign(self.contract, batch=batch)
+            gated = run_campaign(self.contract, batch=batch, population_scope="span", population_minimum=2)
+        self.assertEqual(ungated["phases"]["batch"]["statuses"], {"pass": 1})
+        self.assertEqual(gated["phases"]["batch"]["statuses"], {"regression": 1})
+        self.assertNotIn("population_gate", gated["phases"])
+
+    def test_an_invalid_gate_is_refused_before_any_input_is_read(self):
+        from tracecanary.canonical import InputError
+
+        for scope, minimum in (("span", 0), ("galaxy", 1), ("span", 1_000_001)):
+            with self.subTest(scope=scope, minimum=minimum), self.assertRaises(InputError):
+                run_campaign(self.contract, candidates=[("missing.json", self.root / "does-not-exist.json")],
+                             population_scope=scope, population_minimum=minimum)
+
+    def test_controller_campaign_honours_the_batch_selectors(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            batch = Path(temporary) / "batch"
+            nested = batch / "nested"
+            nested.mkdir(parents=True)
+            (nested / "safe.json").write_text(json.dumps(self.files["safe-export.json"]), encoding="utf-8")
+            controller = TraceCanaryController()
+            flat = controller.run_campaign_selections(
+                contract_path=self.root / "contract.json", input_path=None, baseline_path=None, batch_path=batch)
+            recursive = controller.run_campaign_selections(
+                contract_path=self.root / "contract.json", input_path=None, baseline_path=None, batch_path=batch,
+                batch_recursive=True)
+        # Without Recursive the folder holds no top-level JSON file.
+        self.assertEqual(flat.status, "unresolved")
+        self.assertEqual(recursive.status, "pass")
+        self.assertEqual(json.loads(recursive.json)["phases"]["batch"]["item_count"], 1)
+
+    def test_controller_rejects_a_non_numeric_population_minimum_with_guidance(self):
+        controller = TraceCanaryController()
+        self.assertEqual(controller.campaign_population_minimum(""), (None, None))
+        self.assertEqual(controller.campaign_population_minimum(" 3 "), (3, None))
+        minimum, guidance = controller.campaign_population_minimum("two")
+        self.assertIsNone(minimum)
+        self.assertEqual(guidance.status, "unresolved")
+        self.assertEqual(json.loads(guidance.json)["violations"][0]["code"], "GUI007")
 
 
 if __name__ == "__main__":

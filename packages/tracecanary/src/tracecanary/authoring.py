@@ -17,11 +17,23 @@ and suggests a correction without silently weakening the contract.
 
 from __future__ import annotations
 
+import functools
 import re
 from typing import Any
 
 from tracecanary.contract import ContractError, parse_contract
-from tracecanary.report import Report, Status, build_report, ensure_object_values_absent
+from tracecanary.report import (
+    BatchReport,
+    Report,
+    Status,
+    build_report,
+    ensure_object_values_absent,
+    render_batch_human,
+    render_human,
+    render_json,
+    render_junit,
+    render_sarif,
+)
 
 REVIEW_VERSION = "tracecanary.contract-review/v1"
 MAX_PATH_SEGMENTS = 32
@@ -30,6 +42,8 @@ _SEGMENT = re.compile(r"(?:\*|[^*/]+)")
 # an index there, so a literal next segment can never reach a scalar.
 _ARRAY_FIELDS = {"resourceSpans", "scopeSpans", "spans", "attributes", "events", "links", "values"}
 _ARRAY_STEP = re.compile(r"\*|0|[1-9][0-9]*")
+_VOCABULARY_MODES = ("validate", "check", "diff", "batch", "demo", "starter")
+_VOCABULARY_STATUSES: tuple[Status, ...] = ("pass", "regression", "unresolved")
 
 
 def empty_template() -> dict[str, Any]:
@@ -57,6 +71,49 @@ def validate_draft(raw: Any) -> dict[str, Any]:
     return raw
 
 
+@functools.lru_cache(maxsize=1)
+def _report_vocabulary() -> str:
+    """TraceCanary's own fixed report wording, rendered from value-free skeletons.
+
+    Only the real renderers are used, so the text tracks the wording users
+    see. Nothing here applies the protected-value check: the skeletons carry
+    no contract, and building them must never be able to fail closed.
+    """
+    from tracecanary.campaign import render_campaign_human
+
+    parts: list[str] = []
+    for status in _VOCABULARY_STATUSES:
+        for mode in _VOCABULARY_MODES:
+            report = build_report("tracecanary/v1", status, [], mode=mode)
+            parts.extend((render_human(report), render_json(report)))
+        batch: BatchReport = {"batch_version": "tracecanary.batch/v1", "contract_version": "tracecanary/v1",
+                              "status": status, "items": []}
+        parts.extend((render_batch_human(batch), render_json(batch), render_sarif(batch), render_junit(batch)))
+        campaign = {
+            "status": status,
+            "contract_version": "tracecanary/v1",
+            "phases": {name: {"status": status} for name in ("contract", "control", "baseline", "candidates", "batch", "population_gate")},
+            "summary": {"finding_counts": {}},
+        }
+        parts.append(render_campaign_human(campaign))
+        review = build_report("tracecanary/v1", status, [], mode="contract-review")
+        review["review"] = {"findings": [], "counts": {}}  # type: ignore[typeddict-unknown-key]
+        parts.extend((render_review_human(review), render_json(review)))
+    return "\n".join(parts)
+
+
+def draft_canary_values(raw: Any) -> tuple[str, ...]:
+    """The protected canary values a contract draft declares.
+
+    Callers check every rendering of a review against these values, so a
+    review whose own text would contain one is withheld rather than printed.
+    """
+    canaries = raw.get("canaries", []) if isinstance(raw, dict) else []
+    if not isinstance(canaries, list):
+        return ()
+    return tuple(str(canary.get("value", "")) for canary in canaries if isinstance(canary, dict))
+
+
 def review_contract(raw: Any) -> Report:
     """Value-free diagnostics for a contract draft.
 
@@ -79,7 +136,6 @@ def review_contract(raw: Any) -> Report:
     forbidden_keys = list(raw.get("forbidden_attribute_keys", []))
     forbidden_prefixes = list(raw.get("forbidden_attribute_key_prefixes", []))
     path_prefixes = list(raw.get("forbidden_path_prefixes", []))
-    canaries = raw.get("canaries", [])
 
     # 1. Direct retention conflicts (the same provable conflict the CLI
     #    inspect-contract reports, here with actionable locations).
@@ -123,6 +179,15 @@ def review_contract(raw: Any) -> Report:
     # 5. Canary configuration is validated strictly by the runtime validator
     #    (unique non-empty labels and values, required-field uniqueness, JSON
     #    pointer shape); diagnostics only cover what it does not catch.
+    #    A canary that occurs in TraceCanary's own report wording makes every
+    #    report containing that wording fail closed with no output, so flag it
+    #    here, before any run. The value itself is never echoed.
+    vocabulary = _report_vocabulary()
+    for index, value in enumerate(draft_canary_values(raw), start=1):
+        if value and value in vocabulary:
+            add("conflict", f"canaries[{index}]",
+                "this canary value occurs in TraceCanary report text, so reports containing that text are withheld (exit 2, no output)",
+                "use a unique synthetic value such as TCANARY_<random hex>")
 
     severity_order = {"conflict": 0, "malformed": 1, "ineffective": 2}
     findings.sort(key=lambda item: (severity_order[item["severity"]], item["location"]))
@@ -132,8 +197,7 @@ def review_contract(raw: Any) -> Report:
     for finding in findings:
         counts[finding["severity"]] = counts.get(finding["severity"], 0) + 1
     report["review"] = {"findings": findings, "counts": counts}
-    canary_values = tuple(str(canary.get("value", "")) for canary in canaries if isinstance(canary, dict))
-    ensure_object_values_absent(report, canary_values)
+    ensure_object_values_absent(report, draft_canary_values(raw))
     return report
 
 

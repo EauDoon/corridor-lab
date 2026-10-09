@@ -10,7 +10,7 @@ TraceCanary uses only the Python standard library at runtime. It has no network 
 
 ## Scope
 
-Supported in v0.2.0:
+Supported in this release:
 
 - OTLP/HTTP JSON traces with `resourceSpans`.
 - Exact synthetic-canary detection anywhere in a supported payload.
@@ -20,7 +20,7 @@ Supported in v0.2.0:
 - Stable JSON and human-readable reports.
 - Bounded directory checks with deterministic JSON, SARIF, and JUnit output.
 
-Not supported in v0.2.0:
+Not supported:
 
 - Protobuf, logs, metrics, collector execution, or redaction.
 - Generic secret or PII discovery.
@@ -103,7 +103,7 @@ It refuses a non-empty output directory. From a fresh checkout, set `PYTHONPATH=
 
 ## Regression campaigns
 
-`tracecanary campaign run PROJECT [--control control.json] [--save-summary summary.json]` runs one bounded campaign from a saved project: contract validity, canary exercise in the unsanitized positive control (a control pass confirms exercise, never a privacy pass), baseline validity (a failing baseline is never used), per-candidate privacy and retention findings, the batch directory through the bounded batch engine, and the configured coverage and population gates. Every phase keeps its own status; the campaign status applies unresolved precedence. Value-free, deterministic summaries are saved only through the explicit `--save-summary` action (outside the project directory), and `tracecanary campaign compare baseline.json candidate.json` compares two saved summaries after strict compatibility checks (same contract version, identical required retained fields by scope and key, and identical coverage thresholds and population definitions; incompatible pairs are reported as unsupported rather than compared loosely), aggregating findings by value-free code as persistent, resolved, or new — no entity identity or causal attribution is implied. `tracecanary project promote-baseline PROJECT --candidate candidate.json` promotes a candidate to the project baseline only after the candidate satisfies the contract. The desktop **Regression Campaign** tab runs the same campaign over the current selectors, saves summaries, and compares saved summaries.
+`tracecanary campaign run PROJECT [--control control.json] [--save-summary summary.json]` runs one bounded campaign from a saved project: contract validity, canary exercise in the unsanitized positive control (a control pass confirms exercise, never a privacy pass), baseline validity (a failing baseline is never used), per-candidate privacy and retention findings, the batch directory through the bounded batch engine, and the configured coverage and population gates. A population gate applies to every named candidate, whose `TC013` findings appear in the population-gate phase while privacy findings stay with the candidate, and to every batch file in the batch phase. Every phase keeps its own status; the campaign status applies unresolved precedence. Value-free, deterministic summaries are saved only through the explicit `--save-summary` action (outside the project directory), and `tracecanary campaign compare baseline.json candidate.json` compares two saved summaries after strict compatibility checks (same contract version, identical required retained fields by scope and key, and identical coverage thresholds and population definitions; incompatible pairs are reported as unsupported rather than compared loosely), aggregating findings by value-free code as persistent, resolved, or new — no entity identity or causal attribution is implied. `tracecanary project promote-baseline PROJECT --candidate candidate.json` promotes a candidate to the project baseline only after the candidate satisfies the contract. The desktop **Regression Campaign** tab runs the same campaign over the current selectors, including **Recursive** and **Include paths** for the batch directory, saves summaries, and compares saved summaries. A population minimum that is not a whole number shows guidance instead of being ignored.
 
 `campaign run PROJECT` evaluates both the saved `input` and the saved `candidate`, when present.
 `campaign run --candidate extra.json` adds a candidate; it does not replace or
@@ -129,7 +129,7 @@ independent of the saved named-candidate threshold; an explicit campaign
 
 ## Contract development and diagnosis
 
-`tracecanary contract template --output new-contract.json` writes a minimal valid synthetic contract (never overwritten; replace the placeholder canary value before use). `tracecanary contract review draft.json` adds conservative, value-free diagnostics on top of the strict runtime validator: direct retention conflicts with actionable rule locations, malformed wildcard path prefixes that can never match, forbidden paths that stop before a scalar value, and forbidden exact keys shadowed by broader prefix rules. Every diagnostic names a safe structural location, explains the issue, and suggests a correction without weakening the contract; canary values never appear, and passing review is not a privacy guarantee. The desktop **Is the Contract Usable?** tab gains **Review Contract** and **Edit Contract JSON...** — a transactional editor with a minimal template, strict validation, and an explicit **Save Contract As...** action that is clearly labeled as writing canary configuration, distinct from value-free report exports.
+`tracecanary contract template --output new-contract.json` writes a minimal valid synthetic contract (never overwritten; replace the placeholder canary value before use). `tracecanary contract review draft.json` adds conservative, value-free diagnostics on top of the strict runtime validator: direct retention conflicts with actionable rule locations, malformed wildcard path prefixes that can never match, forbidden paths that stop before a scalar value, forbidden exact keys shadowed by broader prefix rules, and canary values that occur in TraceCanary's own report wording (a `conflict` at `canaries[N]`: every report containing that wording would be withheld with exit 2 and no output). If the review's own text contains such a value, the review itself is withheld the same way. Every diagnostic names a safe structural location, explains the issue, and suggests a correction without weakening the contract; canary values never appear, and passing review is not a privacy guarantee. The desktop **Is the Contract Usable?** tab gains **Review Contract** and **Edit Contract JSON...** — a transactional editor with a minimal template, strict validation, and an explicit **Save Contract As...** action that is clearly labeled as writing canary configuration, distinct from value-free report exports.
 
 ## Commands and exit status
 
@@ -145,6 +145,8 @@ tracecanary-gui
 ```
 
 From a fresh checkout, set `PYTHONPATH=src` and replace `tracecanary` with `python -m tracecanary`; use `python -m tracecanary.gui` for the GUI. `0` means the contract is satisfied. `1` means a privacy or retention regression was detected. `2` means invalid input, an unsupported version, or an unresolved comparison. Invalid OTLP structure, including duplicate attribute keys and duplicate span IDs, is reported with a JSON pointer to the failing resource, span, event, link, or attribute; pointers never include span names or attribute keys.
+
+Exit status `2` with no output at all, on both stdout and stderr, means a report was withheld: a protected canary value occurs in the report's own text, so printing the report, or any explanation of the refusal, could disclose the value. The same applies to every command, including `contract review` and `campaign run`, and the desktop shows an empty result. Use unique synthetic canary values, such as `TCANARY_` followed by random hex digits, that cannot occur in ordinary report wording; `contract review` flags a canary that collides with TraceCanary's fixed report wording before any run.
 
 `validate`, `check`, and `diff` accept `--format human` (default) or `--format json`. `batch` accepts `--format json` (default), `human`, `sarif`, or `junit`; `--recursive` includes `*.json` files in subdirectories; `--include-paths` adds directory-relative POSIX paths to JSON, SARIF, and JUnit items. Batch input is bounded by `limits.max_batch_files` (default 256). Batch `human` output is a per-item status rollup and does not repeat finding labels. A file is part of a batch directory when its name ends in `.json`, compared without case, on every platform; the same rule is used to fingerprint a saved project's batch directory, so a project and a batch over the same folder never disagree about which files belong to it. A saved batch with `--batch-recursive` fingerprints and copies JSON files in subdirectories, matching `batch --recursive`.
 
@@ -192,7 +194,7 @@ The GitHub Actions workflow runs the suite on Windows, Linux, and macOS, install
 
 ## License
 
-Apache-2.0. See [LICENSE](LICENSE).
+MIT. See [LICENSE](LICENSE).
 
 ## Explicit report files
 

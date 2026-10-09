@@ -15,7 +15,6 @@ from tracecanary.otlp import OtlpError, validate_trace
 from tracecanary.report import (
     BatchItem,
     BatchReport,
-    Report,
     Status,
     UnsafeReportError,
     Violation,

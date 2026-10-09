@@ -227,7 +227,60 @@ def _sensitivity_explanation() -> list[str]:
     ]
 
 
+_MARKDOWN_HEADING = re.compile(r"(#{1,6}) ")
+
+
+def _nested_markdown(report: dict[str, object]) -> list[str]:
+    """Render a sub-report two heading levels deeper so it nests under its item."""
+    lines: list[str] = []
+    for line in render_markdown(report).splitlines():
+        match = _MARKDOWN_HEADING.match(line)
+        if match:
+            level = min(len(match.group(1)) + 2, 6)
+            line = "#" * level + line[match.end(1):]
+        lines.append(line)
+    return lines
+
+
+def _project_run_markdown(report: dict[str, object]) -> str:
+    items = [item for item in report.get("items", []) if isinstance(item, dict)]
+    variant_run = any("variant" in item for item in items)
+    headers = ["Item", "Variant", "Experiment", "Status"] if variant_run else ["Item", "Experiment", "Analysis", "Status"]
+    include_errors = any(_batch_item_error(item) for item in items)
+    if include_errors:
+        headers.append("Error")
+    lines = [
+        "# Corridor Lab project run",
+        "",
+        f"Project: `{_cell(report.get('project_id', ''))}`",
+        "",
+        f"Status: `{_cell(report.get('status', 'unresolved'))}`",
+        "",
+        "| " + " | ".join(headers) + " |",
+        "| " + " | ".join("---" for _ in headers) + " |",
+    ]
+    for item in items:
+        if variant_run:
+            values = [item.get("id", ""), item.get("variant", ""), item.get("experiment", "")]
+        else:
+            values = [item.get("id", ""), item.get("name", ""), item.get("analysis", "")]
+        values.append(item.get("status", "unresolved"))
+        if include_errors:
+            values.append(_batch_item_error(item))
+        lines.append("| " + " | ".join(_cell(value) for value in values) + " |")
+    for item in items:
+        nested = item.get("report")
+        if item.get("status") != "pass" or not isinstance(nested, dict):
+            continue
+        label = item.get("variant") if variant_run else item.get("name")
+        lines.extend(["", f"## {_cell(item.get('id', ''))}: {_cell(label or '')}", ""])
+        lines.extend(_nested_markdown(nested))
+    return "\n".join(lines) + "\n"
+
+
 def render_markdown(report: dict[str, object]) -> str:
+    if report.get("report_version") == "corridor-lab.project-run/v1":
+        return _project_run_markdown(report)
     scenario_id = _cell(report.get("scenario_id", "ad-hoc"))
     lines = ["# Corridor Lab report", "", f"Synthetic scenario: `{scenario_id}`", ""]
     if report.get("report_version") == "corridor-lab.analysis/v1":
@@ -323,6 +376,8 @@ def render_markdown(report: dict[str, object]) -> str:
         else:
             lines.extend(_sensitivity_explanation())
         return "\n".join(lines) + "\n"
+    if not isinstance(report.get("routes"), list):
+        raise ValueError(f"no Markdown renderer for {report.get('report_version')}")
     send_currency = _currency(report, "send_currency", "send currency")
     receive_currency = _currency(report, "receive_currency", "receive currency")
     lines.extend(

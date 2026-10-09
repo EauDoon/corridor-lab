@@ -209,3 +209,41 @@ class GuiControllerTests(unittest.TestCase):
                     else:
                         result = CorridorGuiController().load_routes_path(selected)
                         self.assertIn("changed while being read", result.error)
+
+
+class GuiEvidenceProvenanceTests(unittest.TestCase):
+    def test_batch_evidence_names_the_scanned_directory_not_the_loaded_scenario(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            loaded = root / "loaded.json"
+            loaded.write_text(json.dumps(scenario(routes=[route("fictional-embedded")])), encoding="utf-8")
+            portfolio = root / "portfolio"
+            portfolio.mkdir()
+            (portfolio / "one.json").write_text(json.dumps(scenario(routes=[route("fictional-embedded")])), encoding="utf-8")
+            controller = CorridorGuiController()
+            self.assertIsNone(controller.load_scenario_file(loaded).error)
+            self.assertIsNone(controller.run_portfolio_batch(portfolio, False, False).error)
+            self.assertIsNone(controller.export_evidence(root / "batch-evidence.json").error)
+            inputs = json.loads((root / "batch-evidence.json").read_text(encoding="utf-8"))["inputs"]
+            self.assertEqual(inputs["scenario"], f"each JSON scenario in {portfolio}")
+            self.assertNotIn(str(loaded), json.dumps(inputs))
+            # the next single-scenario report drops the batch provenance again
+            self.assertIsNone(controller.evaluate().error)
+            self.assertIsNone(controller.export_evidence(root / "evaluate-evidence.json").error)
+            inputs = json.loads((root / "evaluate-evidence.json").read_text(encoding="utf-8"))["inputs"]
+            self.assertEqual(inputs["scenario"], controller.scenario_source)
+            self.assertIsNone(inputs["baseline"])
+
+    def test_diff_evidence_names_the_baseline(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            candidate = root / "candidate.json"
+            baseline = root / "baseline.json"
+            candidate.write_text(json.dumps(scenario(routes=[route("fictional-embedded")])), encoding="utf-8")
+            baseline.write_text(json.dumps(scenario(routes=[route("fictional-embedded")])), encoding="utf-8")
+            controller = CorridorGuiController()
+            self.assertIsNone(controller.load_scenario_file(candidate).error)
+            self.assertIsNone(controller.diff_against_baseline(baseline).error)
+            self.assertIsNone(controller.export_evidence(root / "diff-evidence.json").error)
+            inputs = json.loads((root / "diff-evidence.json").read_text(encoding="utf-8"))["inputs"]
+            self.assertEqual(inputs["baseline"], str(baseline))

@@ -3,11 +3,10 @@ import io
 import json
 import tempfile
 import unittest
-from decimal import Decimal, ROUND_HALF_UP
+from decimal import Decimal
 from pathlib import Path
 from unittest.mock import patch
 
-import corridor_lab.route as route_module
 from corridor_lab.cli import main as cli_main
 from corridor_lab.gui_controller import BUILTIN_DEMO_SCENARIO, CorridorGuiController
 from helpers import route, scenario

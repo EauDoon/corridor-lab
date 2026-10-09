@@ -12,9 +12,12 @@ are now deprecated; see the deprecation note at the top of each.
 
 ## [Unreleased]
 
-The next release is currently drafted as `0.3.0` pending owner approval.
-Nothing here is published until the owner approves the release (see
-`RELEASE-CHECKLIST.md`).
+## [0.3.0] - 2026-10-09
+
+Both packages ship 0.3.0, tagged `corridor-lab-v0.3.0` and
+`tracecanary-v0.3.0` on the same `main` commit. This section covers every
+change on `main` since 0.2.0 (2837b4c). The real-window Windows acceptance in
+`RELEASE-CHECKLIST.md` is a separate gate from these notes.
 
 ### Added
 
@@ -22,6 +25,16 @@ Nothing here is published until the owner approves the release (see
   projects, evidence safety, and modified-input refusal.
 - Timed headless smoke checks of both built portable Windows executables.
   Real-window acceptance remains a separate release gate.
+- **`--version` on every entry point.** `corridorlab`, `corridorlab-gui`,
+  `tracecanary`, and `tracecanary-gui` print their name and version. The
+  desktop window titles show the version too, because the Windows GUI
+  launchers have no console. Each package's `__version__` is now the single
+  source of truth: `pyproject.toml` reads it through
+  `[tool.setuptools.dynamic]`, and the installed journeys check the
+  distribution metadata and the installed `--version` output against it.
+- **Versioned SARIF.** TraceCanary's SARIF `tool.driver` now carries
+  `version` and `semanticVersion`, so code-scanning uploads name the release
+  that produced them.
 
 #### Corridor Lab
 
@@ -76,15 +89,82 @@ Nothing here is published until the owner approves the release (see
 - **Evidence exports.** Value-free evidence bundles (campaign summary,
   thresholds, tool version, limitations) that never bundle canary
   values, contracts, or trace inputs.
+- **Canary collision diagnostic.** `contract review` reports a `conflict`
+  at `canaries[N]` when a canary value occurs in TraceCanary's own fixed
+  report wording (for example `PASS`), because every report containing that
+  wording would be withheld with exit 2 and no output. The value is never
+  echoed. The specification now lists every report mode the code emits,
+  the `GUI007` and `GUI008` guidance codes, and how withheld reports behave.
 
 #### Both packages
 
-- CI now runs on Linux, Windows, and macOS for Python 3.11 and 3.12.
+- CI now runs on Linux, Windows, and macOS for Python 3.11 through 3.14,
+  and both packages declare Python 3.13 and 3.14 support. Both suites gave
+  identical results on 3.13 and 3.14 before the classifiers were added.
+- Dependabot keeps the SHA-pinned workflow actions current with one
+  weekly grouped update. The portable Windows builds run on pull requests
+  that change their workflow, launcher, or packaging, and never cancel a
+  build already in progress.
+- **Release gate.** `tools/check_release.py` enforces the lockstep version
+  policy, the dynamic pyproject version, package `LICENSE` files equal to the
+  root, and this file's structure (one Unreleased section, dated version
+  sections in descending order, link references, no repeated subsections).
+  It runs with its own unit tests in `Repo checks`. With `--tag` it gates both
+  portable Windows workflows, which now trigger on `corridor-lab-v*` and
+  `tracecanary-v*`, name their archives with the version, and also retain
+  the wheel and sdist with a `SHA256SUMS` file. `--notes X.Y.Z` prints a
+  section for release notes. This file now records 0.2.0, 0.1.1, and 0.1.0,
+  which were set on `main` but never tagged, and both `docs/RELEASE.md`
+  files describe the release process instead of one version.
 - Measured bounded workloads are recorded in PROGRESS.md; results sit
   well inside all declared bounds.
 
 ### Changed
 
+- **TraceCanary campaign population gates count each finding once and
+  cover every input.** The population-gate phase copied every privacy
+  finding that `population_gate` re-detects, so a gated campaign reported
+  each canary leak and forbidden key twice in its totals and saved summary.
+  It also gated only the first named candidate, never gated the batch, and
+  showed a privacy regression as a population failure. The phase now holds
+  one item per named candidate and only `TC013` findings, privacy findings
+  stay in the candidates phase, and batch files are gated in the batch
+  phase. `campaign_version` and `summary_version` are unchanged because the
+  new fields are additive. Summaries saved before this release with a
+  population gate carry the doubled counts, so comparing one with a newer
+  summary reports those duplicates as resolved findings; rerun the older
+  campaign before comparing. The desktop campaign now honours the
+  **Recursive** and **Include paths** batch selectors, as `campaign run` and
+  saved projects already did, and a population minimum that is not a whole
+  number shows `GUI007` guidance instead of being dropped.
+- **License metadata aligned to the repository's MIT license.** The root
+  `LICENSE` is MIT, but both packages shipped an Apache-2.0 `LICENSE` and
+  declared `License: Apache-2.0` in wheel metadata. Both package `LICENSE`
+  files now carry the root MIT text, and each `pyproject.toml` declares the
+  SPDX expression `license = "MIT"` with `license-files = ["LICENSE"]`. This
+  replaces the TOML-table license and the license classifier, which setuptools
+  deprecates and stops building after 2027-02-18. Wheels now carry
+  `Metadata-Version: 2.4` and `License-Expression: MIT`.
+- A new `Repo checks` workflow runs on every push and pull request, with no
+  path filter, and lints the whole repository with pinned `ruff==0.16.10`
+  (pyflakes and syntax errors, configured in the root `ruff.toml`). The
+  dead imports and unused locals it found are gone; calls kept only for
+  their validation keep the call and drop the name. `CONTRIBUTING.md` now
+  lists the real local checks instead of `pnpm` commands and a type check
+  that never existed.
+- The root `SECURITY.md` is now the single security policy. It covers the
+  case where GitHub private vulnerability reporting is not enabled (ask for a
+  private contact in an issue with no technical detail) and supports the
+  latest minor release of each package. The package policies keep their
+  security boundaries and link to it instead of naming a `0.2.x` line or
+  "the maintainers of the distribution". The issue templates gain the front
+  matter GitHub's chooser needs, the bug template asks for `--version`
+  output and synthetic inputs only, and a contact link points security
+  reports at the policy. The Corridor Lab example README now says to run its
+  commands from `packages/corridor-lab`, where the paths resolve.
+- Corridor Lab `corridor-lab.evidence/v1` documents gain an additive
+  `inputs.baseline` key (`null` when no baseline was read). Batch evidence
+  describes `inputs.scenario` as each JSON scenario in the scanned directory.
 - Wheel verification selects exactly one built distribution without a version
   literal; TraceCanary now verifies in an isolated environment.
 - CI action pins use Node 24. Current-state and release documentation now
@@ -100,10 +180,6 @@ Nothing here is published until the owner approves the release (see
 
 ### Removed
 
-- None.
-
-### Removed
-
 - **TraceCanary duplicated campaign-comparison renderer.** `cli.py` carried a
   byte-identical private copy of `campaign.render_comparison_human` under the
   name `render_campaign_human`, so `campaign compare --format human` did not
@@ -114,6 +190,50 @@ Nothing here is published until the owner approves the release (see
 
 ### Fixed
 
+- **Corridor Lab `project run` and `project run-variants` crashed on Markdown.**
+  Both commands advertise `--format markdown` (also chosen by a `.md`
+  `--output` or `CORRIDOR_LAB_FORMAT=markdown`), but the Markdown renderer had
+  no branch for `corridor-lab.project-run/v1` and fell through to the route
+  table, so every such run ended in a `KeyError: 'routes'` traceback. Project
+  runs now render a status table per experiment or variant followed by each
+  passing item's own report, nested two heading levels down. A report kind the
+  renderer does not know now fails with exit 2 and a diagnostic instead of a
+  traceback.
+- **Corridor Lab `compare-variants` called the expected recipient amount
+  conditional.** The `metric_definition` for `expected_recipient_amount` read
+  "conditional recipient amount", which `docs/MODEL.md` defines as the amount
+  before weighting by success probability. It now reads "expected recipient
+  amount (failure outcomes contribute zero)" in JSON, CSV, and Markdown. The
+  metric values are unchanged.
+- **Corridor Lab evidence documents misstated their inputs.** `batch
+  --evidence` recorded the scenario as "built-in fictional demo",
+  `robustness-review` recorded a Python list literal, and `diff` never named
+  its baseline. In the desktop, evidence for a portfolio batch named whatever
+  scenario had been loaded before it. Evidence now records the scanned batch
+  directory, every reviewed scenario separated by `; `, and the diff baseline.
+- **Corridor Lab wrote the report before refusing a colliding `--evidence`
+  path.** `evaluate victim.json --output out.json --evidence victim.json`
+  exited 2 but left `out.json` written. Both destinations are now checked
+  against every input and each other before any analysis runs.
+- **`CORRIDOR_LAB_FORMAT` broke project commands that emit no report.** An
+  unsupported value such as `yaml` made `project validate` and `project
+  create` exit 2. Project subcommands now resolve their own formats, as they
+  already did for the commands that write reports.
+- **TraceCanary refused to promote the candidate a project already held.**
+  After `project create --candidate after.json`, the natural next step,
+  `project promote-baseline PROJECT --candidate after.json`, failed with
+  "project input already exists" because the project's copy has the same
+  name. A byte-identical regular file already in the project is now reused;
+  a different file with the same name, a link, or a folder is still refused.
+  Promotion also validates the new manifest before writing it, so a
+  manifest the loader would refuse never replaces a loadable one.
+- **Source distributions could not run their own tests.** Both sdists
+  shipped `test*.py` but not the data those tests read (examples, routes,
+  fixtures, schemas, docs) or Corridor Lab's `tests/helpers.py`, which 22
+  test modules import. The extracted suites failed with 22 and 43 problems.
+  Each package now has a `MANIFEST.in` that grafts those directories, and
+  CI builds each sdist outside the checkout, extracts it, and runs its suite
+  on every operating system and Python version. Wheel contents are unchanged.
 - **Corridor Lab variant changes could not name a route id that contains a dot.**
   ``route.ROUTE_ID.FIELD`` split on the first dot, so ``my.route`` was read
   as route id ``my`` and a field of ``route.fx_rate``. Route ids may contain
@@ -317,13 +437,80 @@ Nothing here is published until the owner approves the release (see
 
 ### Security
 
-- None.
+- **TraceCanary printed texts the protected-value check never saw.** Every
+  report is meant to be withheld, silently and with exit 2, when a protected
+  canary value occurs in its text. `contract review` (CLI and desktop) checked
+  only the review object, then printed a human rendering whose fixed wording
+  could contain the value: a contract whose canary was `TraceCanary` reviewed
+  as `TraceCanary contract review: PASS`. The desktop campaign returned its
+  human rendering unchecked as well. `campaign run` and the contract commands
+  caught the withheld-report error as an ordinary failure and printed
+  `TraceCanary: UNRESOLVED: `, which itself contains values such as `race`.
+  Review and campaign texts, and a campaign summary before it is saved, are
+  now checked as emitted, and every withheld result is silent.
 
 ### Compatibility
 
 - Python 3.11+; standard-library runtime; offline; no new entry points
   removed; all existing command names, report contracts, deterministic
   outputs, and status semantics preserved.
+
+## [0.2.0] - 2026-09-10
+
+Both packages were set to 0.2.0 on `main` in 2837b4c. This version was never
+tagged or published as a release; the summaries below are moved verbatim from
+the two `docs/RELEASE.md` files.
+
+### Added
+
+#### Corridor Lab
+
+- Version 0.2.0 adds signed guardrail headroom, a weighted outcome ledger,
+  deadline/resolution profiles, whole-volume break-even checks, and bounded
+  transaction grids. Existing route evaluation and ranking semantics remain
+  unchanged.
+
+#### TraceCanary
+
+- Version 0.2.0 adds value-free contract inspection, exact coverage gates and
+  comparisons, missing-retention matrices, and weighted batch coverage.
+  Existing check and diff semantics remain unchanged. A release build must run
+  from a clean checkout on Windows and Ubuntu with Python 3.11 or newer.
+
+## [0.1.1] - 2026-08-03
+
+Corridor Lab was set to 0.1.1 in 8f00cde and TraceCanary in d7fbaaf, while
+each package still had its own history. This version was never tagged or
+published as a release; the summaries below are the `docs/RELEASE.md` text
+that 2837b4c replaced.
+
+### Added
+
+#### Corridor Lab
+
+- Version 0.1.1 pins the setuptools build backend and adds bounded batch
+  portfolios, explicit two-parameter stress grids, and a Pareto frontier that
+  keeps expected recipient amount and expected sender cost separate.
+
+#### TraceCanary
+
+- The package version, pinned setuptools build backend, and deterministic
+  batch report formats are the v0.1.1 release boundary. A release build must
+  run from a clean checkout on Windows and Ubuntu with Python 3.11 or newer.
+
+## [0.1.0] - 2026-08-02
+
+Initial releases: Corridor Lab in 550a70d and TraceCanary in be75fb9, each the
+root commit of its own history. On 2026-08-30, 4864a4f established this
+repository's package layout and 422a9c9 imported the TraceCanary history into
+it. This version was never tagged.
+
+### Added
+
+- Corridor Lab 0.1.0, the first deterministic comparison of fictional
+  cross-border payment routes.
+- TraceCanary 0.1.0, the first synthetic-canary privacy-regression checker
+  for OTLP/HTTP JSON trace exports.
 
 ## Milestone history
 
@@ -548,3 +735,9 @@ None.
   pointing readers to this CHANGELOG.md.
 - No content has been invented; every entry traces back to
   `RELEASE-NOTES.md` or `PROGRESS.md`.
+
+[Unreleased]: https://github.com/EauDoon/operator-labs/compare/corridor-lab-v0.3.0...HEAD
+[0.3.0]: https://github.com/EauDoon/operator-labs/compare/2837b4c...corridor-lab-v0.3.0
+[0.2.0]: https://github.com/EauDoon/operator-labs/compare/8f00cde...2837b4c
+[0.1.1]: https://github.com/EauDoon/operator-labs/compare/550a70d...8f00cde
+[0.1.0]: https://github.com/EauDoon/operator-labs/commit/550a70d

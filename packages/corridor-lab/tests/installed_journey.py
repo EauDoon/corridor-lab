@@ -1,5 +1,7 @@
 """Run with an installed wheel: python -I tests/installed_journey.py."""
+import importlib.metadata
 import json
+import os
 from pathlib import Path
 import subprocess
 import sys
@@ -8,8 +10,19 @@ import tempfile
 import corridor_lab
 
 
+def check_installed_version():
+    """The distribution metadata and the installed console script agree with __version__."""
+    assert importlib.metadata.version("corridor-lab") == corridor_lab.__version__
+    script = Path(sys.executable).parent / ("corridorlab.exe" if os.name == "nt" else "corridorlab")
+    assert script.is_file(), script
+    result = subprocess.run([str(script), "--version"], capture_output=True, text=True, timeout=30)
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert result.stdout.strip() == f"corridorlab {corridor_lab.__version__}", result.stdout
+
+
 def main():
     assert Path(corridor_lab.__file__).resolve().is_relative_to(Path(sys.prefix).resolve())
+    check_installed_version()
     with tempfile.TemporaryDirectory() as temporary:
         root = Path(temporary)
 

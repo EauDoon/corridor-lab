@@ -156,3 +156,15 @@ class CliUsageTests(unittest.TestCase):
         self.assertEqual(status, EXIT_UNRESOLVED)
         self.assertEqual(output.getvalue(), "")
         self.assertIn("unrecognized arguments", error.getvalue())
+
+    def test_cli_and_gui_report_the_package_version(self) -> None:
+        import tracecanary
+
+        for entry, function, prog in ((main, "cli", "tracecanary"), (gui_main, "gui", "tracecanary-gui")):
+            output = io.StringIO()
+            error = io.StringIO()
+            with self.subTest(entry=function), contextlib.redirect_stdout(output), contextlib.redirect_stderr(error):
+                status = entry(["--version"])
+            self.assertEqual(status, EXIT_PASS)
+            self.assertEqual(output.getvalue(), f"{prog} {tracecanary.__version__}\n")
+            self.assertEqual(error.getvalue(), "")

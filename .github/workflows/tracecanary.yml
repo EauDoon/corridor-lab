@@ -27,7 +27,7 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
-        python-version: ["3.11", "3.12"]
+        python-version: ["3.11", "3.12", "3.13", "3.14"]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
@@ -41,6 +41,34 @@ jobs:
       - run: python -c "from pathlib import Path; import shutil; source=Path('.').resolve(); target=Path(r'${{ runner.temp }}') / 'tracecanary-source'; shutil.copytree(source, target, ignore=shutil.ignore_patterns('.git', 'build', '*.egg-info', '__pycache__', '*.pyc'))"
       - run: python -m pip install --disable-pip-version-check --no-deps "setuptools==83.0.0"
       - run: python -m pip wheel --no-deps --no-build-isolation --wheel-dir "${{ runner.temp }}/tracecanary-wheelhouse" "${{ runner.temp }}/tracecanary-source"
+      # Runs before the verify venv joins PATH, so python still has the pinned setuptools.
+      - name: Build and test the sdist outside the checkout
+        shell: pwsh
+        run: |
+          $sourceRoot = Join-Path $env:RUNNER_TEMP "tracecanary-source"
+          $sdistDir = Join-Path $env:RUNNER_TEMP "tracecanary-sdist"
+          $extractRoot = Join-Path $env:RUNNER_TEMP "tracecanary-sdist-tree"
+          New-Item -ItemType Directory -Force -Path $sdistDir, $extractRoot | Out-Null
+          Push-Location $sourceRoot
+          try {
+            python -c "import sys; from setuptools import build_meta as b; print(b.build_sdist(sys.argv[1]))" $sdistDir
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          } finally {
+            Pop-Location
+          }
+          $sdists = @(Get-ChildItem -LiteralPath $sdistDir -Filter "tracecanary-*.tar.gz")
+          if ($sdists.Count -ne 1) { throw "Expected exactly one TraceCanary sdist." }
+          python -c "import sys, tarfile; tarfile.open(sys.argv[1]).extractall(sys.argv[2], filter='data')" $sdists[0].FullName $extractRoot
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $trees = @(Get-ChildItem -LiteralPath $extractRoot -Directory)
+          if ($trees.Count -ne 1) { throw "Expected exactly one extracted TraceCanary sdist tree." }
+          Push-Location $trees[0].FullName
+          try {
+            python -m unittest discover -s tests -v
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          } finally {
+            Pop-Location
+          }
       - name: Install exact wheel in an isolated environment
         shell: pwsh
         run: |
