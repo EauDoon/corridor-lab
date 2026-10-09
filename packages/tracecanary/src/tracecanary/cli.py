@@ -484,13 +484,18 @@ def _campaign(args: Any) -> int:
                 population_scope=population_scope,
                 population_minimum=population_minimum,
             )
+            canary_values = tuple(canary.value for canary in contract.canaries)
             output = render_json(campaign)
-            ensure_text_values_absent(output, tuple(canary.value for canary in contract.canaries))
-            _emit(output, args.output if hasattr(args, "output") else None)
+            ensure_text_values_absent(output, canary_values)
             summary_path = args.save_summary
+            summary_text = ""
             if summary_path is not None:
-                summary = campaign_summary(campaign)
-                summary_text = render_json(summary)
+                # Check the summary before anything is emitted, so a withheld
+                # summary never follows a printed campaign report.
+                summary_text = render_json(campaign_summary(campaign))
+                ensure_text_values_absent(summary_text, canary_values)
+            _emit(output, args.output if hasattr(args, "output") else None)
+            if summary_path is not None:
                 sources = [contract_path, control, baseline, batch, *(path for _, path in candidates)]
                 protect_inputs(summary_path, [path for path in sources if path is not None], loaded.path.parent)
                 protect_inputs(summary_path, [], batch)
@@ -506,6 +511,9 @@ def _campaign(args: Any) -> int:
             _emit(output, args.output)
             return EXIT_PASS
         raise InputError(f"unsupported campaign command: {command}")
+    except UnsafeReportError:
+        # Withheld output stays silent: any explanation could contain the value.
+        return EXIT_UNRESOLVED
     except (ContractError, InputError, OtlpError, ValueError) as exc:
         print(f"TraceCanary: UNRESOLVED: {exc}", file=sys.stderr)
         return EXIT_UNRESOLVED
@@ -518,7 +526,7 @@ MAX_CAMPAIGN_SUMMARY_BYTES = 1_000_000
 
 
 def _contract_authoring(args: Any) -> int:
-    from tracecanary.authoring import empty_template, review_contract, validate_draft
+    from tracecanary.authoring import draft_canary_values, empty_template, review_contract, validate_draft
     from tracecanary.canonical import canonical_json
 
     command = args.contract_command
@@ -528,6 +536,7 @@ def _contract_authoring(args: Any) -> int:
             protect_inputs(args.output, [args.contract_path])
             report = review_contract(raw)
             output = render_json(report) if args.format == "json" else render_contract_review_human(report)
+            ensure_text_values_absent(output, draft_canary_values(raw))
             _emit(output, args.output)
             return _status_exit(report["status"])
         if command == "template":
@@ -539,6 +548,8 @@ def _contract_authoring(args: Any) -> int:
             print(f"Synthetic contract template written to {args.output}; replace the placeholder canary value before use.")
             return EXIT_PASS
         raise InputError(f"unsupported contract command: {command}")
+    except UnsafeReportError:
+        return EXIT_UNRESOLVED
     except (ContractError, InputError, ValueError) as exc:
         print(f"TraceCanary: UNRESOLVED: {exc}", file=sys.stderr)
         return EXIT_UNRESOLVED

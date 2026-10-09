@@ -57,6 +57,18 @@ def validate_draft(raw: Any) -> dict[str, Any]:
     return raw
 
 
+def draft_canary_values(raw: Any) -> tuple[str, ...]:
+    """The protected canary values a contract draft declares.
+
+    Callers check every rendering of a review against these values, so a
+    review whose own text would contain one is withheld rather than printed.
+    """
+    canaries = raw.get("canaries", []) if isinstance(raw, dict) else []
+    if not isinstance(canaries, list):
+        return ()
+    return tuple(str(canary.get("value", "")) for canary in canaries if isinstance(canary, dict))
+
+
 def review_contract(raw: Any) -> Report:
     """Value-free diagnostics for a contract draft.
 
@@ -79,7 +91,6 @@ def review_contract(raw: Any) -> Report:
     forbidden_keys = list(raw.get("forbidden_attribute_keys", []))
     forbidden_prefixes = list(raw.get("forbidden_attribute_key_prefixes", []))
     path_prefixes = list(raw.get("forbidden_path_prefixes", []))
-    canaries = raw.get("canaries", [])
 
     # 1. Direct retention conflicts (the same provable conflict the CLI
     #    inspect-contract reports, here with actionable locations).
@@ -132,8 +143,7 @@ def review_contract(raw: Any) -> Report:
     for finding in findings:
         counts[finding["severity"]] = counts.get(finding["severity"], 0) + 1
     report["review"] = {"findings": findings, "counts": counts}
-    canary_values = tuple(str(canary.get("value", "")) for canary in canaries if isinstance(canary, dict))
-    ensure_object_values_absent(report, canary_values)
+    ensure_object_values_absent(report, draft_canary_values(raw))
     return report
 
 

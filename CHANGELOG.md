@@ -349,7 +349,17 @@ Nothing here is published until the owner approves the release (see
 
 ### Security
 
-- None.
+- **TraceCanary printed texts the protected-value check never saw.** Every
+  report is meant to be withheld, silently and with exit 2, when a protected
+  canary value occurs in its text. `contract review` (CLI and desktop) checked
+  only the review object, then printed a human rendering whose fixed wording
+  could contain the value: a contract whose canary was `TraceCanary` reviewed
+  as `TraceCanary contract review: PASS`. The desktop campaign returned its
+  human rendering unchecked as well. `campaign run` and the contract commands
+  caught the withheld-report error as an ordinary failure and printed
+  `TraceCanary: UNRESOLVED: `, which itself contains values such as `race`.
+  Review and campaign texts, and a campaign summary before it is saved, are
+  now checked as emitted, and every withheld result is silent.
 
 ### Compatibility
 

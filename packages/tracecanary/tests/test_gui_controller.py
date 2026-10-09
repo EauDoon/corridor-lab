@@ -210,3 +210,51 @@ class GuiControllerTests(unittest.TestCase):
             status = gui.launch_window()
         self.assertEqual(status, EXIT_UNRESOLVED)
         fallback.assert_called_once_with("TraceCanary GUI could not open a window in this environment.")
+
+
+class GuiProtectedTextTests(unittest.TestCase):
+    """Rendered desktop text is checked as emitted, not only the report object."""
+
+    @staticmethod
+    def _contract(root: Path, value: str) -> Path:
+        contract = json.loads((FIXTURES / "contract.json").read_text(encoding="utf-8"))
+        contract["canaries"] = [{"label": "synthetic", "category": "test", "value": value}]
+        path = root / "contract.json"
+        path.write_text(json.dumps(contract), encoding="utf-8")
+        return path
+
+    def test_contract_review_text_collision_returns_no_rendered_output(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            contract_path = self._contract(Path(directory), "Diagnostics are structural")
+            result = TraceCanaryController().review_contract(contract_path)
+        self.assertEqual(result.exit_code, EXIT_UNRESOLVED)
+        self.assertEqual(result.human + result.json, "")
+
+    def test_campaign_text_collision_returns_no_rendered_output(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            contract_path = self._contract(root, "not a privacy pass")
+            result = TraceCanaryController().run_campaign_selections(
+                contract_path=contract_path,
+                input_path=FIXTURES / "safe-export.json",
+                baseline_path=None,
+                batch_path=None,
+            )
+        self.assertEqual(result.exit_code, EXIT_UNRESOLVED)
+        self.assertEqual(result.human + result.json, "")
+
+    def test_review_and_campaign_still_render_with_unique_canaries(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            contract_path = self._contract(root, "TCANARY_UNIQUE_3f9a0c12")
+            review = TraceCanaryController().review_contract(contract_path)
+            campaign = TraceCanaryController().run_campaign_selections(
+                contract_path=contract_path,
+                input_path=FIXTURES / "safe-export.json",
+                baseline_path=None,
+                batch_path=None,
+            )
+        self.assertEqual(review.status, "pass")
+        self.assertIn("Diagnostics are structural", review.human)
+        self.assertEqual(campaign.status, "pass")
+        self.assertIn("not a privacy pass", campaign.human)

@@ -10,7 +10,7 @@ from typing import Any
 import json
 
 from tracecanary import __version__
-from tracecanary.authoring import empty_template, render_review_human, review_contract, validate_draft
+from tracecanary.authoring import draft_canary_values, empty_template, render_review_human, review_contract, validate_draft
 from tracecanary.batching import run_batch
 from tracecanary.campaign import (
     campaign_summary,
@@ -116,10 +116,15 @@ class TraceCanaryController:
         try:
             raw = load_json(Path(contract_path), max_bytes=5_000_000, max_depth=100)
             report = review_contract(raw)
+            human = render_review_human(report)
+            json_text = render_json(report)
+            ensure_text_values_absent(human + json_text, draft_canary_values(raw))
+        except UnsafeReportError:
+            return GuiResult("unresolved", EXIT_UNRESOLVED, "", "", mode="contract-review")
         except (ContractError, InputError, OSError, ValueError) as exc:
             return self._guidance("contract-review", GUI001, f"The contract could not be reviewed. ({exc})")
         status = report["status"]
-        return GuiResult(status, _exit_code(status), render_review_human(report), render_json(report),
+        return GuiResult(status, _exit_code(status), human, json_text,
                          None, (Path(contract_path),), None, "contract-review")
 
     def contract_template_text(self) -> str:
@@ -538,12 +543,12 @@ class TraceCanaryController:
         if batch_path and str(batch_path).strip():
             candidates_from_batch = True
 
-        def operation() -> dict[str, Any]:
+        def operation() -> tuple[dict[str, Any], str, str]:
             contract = load_contract(Path(contract_path))
             control_payload = self._load_trace(Path(control_path), contract) if control_path and str(control_path).strip() else None
             baseline_payload = self._load_trace(Path(baseline_path), contract) if baseline_path and str(baseline_path).strip() else None
             candidates = [(Path(input_path).name, Path(input_path))] if input_path and str(input_path).strip() else []
-            return run_campaign_engine(
+            campaign = run_campaign_engine(
                 contract,
                 control_payload=control_payload,
                 baseline_payload=baseline_payload,
@@ -553,15 +558,21 @@ class TraceCanaryController:
                 population_scope=population_scope,
                 population_minimum=population_minimum,
             )
+            # The engine checks the campaign object; the rendered texts carry
+            # fixed wording of their own, so they are checked as emitted.
+            human = render_campaign_human(campaign)
+            json_text = render_json(campaign)
+            ensure_text_values_absent(human + json_text, tuple(canary.value for canary in contract.canaries))
+            return campaign, human, json_text
 
         try:
-            campaign = operation()
+            campaign, human, json_text = operation()
         except UnsafeReportError:
             return GuiResult("unresolved", EXIT_UNRESOLVED, "", "", None, tuple(inputs), input_dir, "campaign")
         except (ContractError, InputError, OtlpError, OSError, ValueError) as exc:
             return self._guidance("campaign", GUI005, f"The campaign could not run. ({exc})")
         status = campaign["status"]
-        return GuiResult(status, _exit_code(status), render_campaign_human(campaign), render_json(campaign),
+        return GuiResult(status, _exit_code(status), human, json_text,
                          None, tuple(inputs), input_dir, "campaign")
 
     def save_campaign_evidence(self, evidence_path: str | Path, result: GuiResult) -> GuiResult:

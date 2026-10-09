@@ -447,3 +447,37 @@ class ReportTests(unittest.TestCase):
                 if output_format == "sarif":
                     driver = json.loads(rendered[0])["runs"][0]["tool"]["driver"]
                     self.assertEqual(driver["informationUri"], "https://github.com/EauDoon/operator-labs/tree/main/packages/tracecanary")
+
+    @staticmethod
+    def _contract_with_canary(value: str) -> dict[str, object]:
+        contract = json.loads((FIXTURES / "contract.json").read_text(encoding="utf-8"))
+        contract["canaries"] = [{"label": "synthetic", "category": "test", "value": value}]
+        return contract
+
+    def test_contract_review_text_collision_fails_silently(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            contract_path = Path(directory) / "contract.json"
+            contract_path.write_text(json.dumps(self._contract_with_canary("TraceCanary")), encoding="utf-8")
+            # The review object is value-free, but its human rendering names the tool.
+            self._assert_cli_fails_silently(["contract", "review", str(contract_path)])
+            output_path = Path(directory) / "review.txt"
+            self._assert_cli_fails_silently(["contract", "review", str(contract_path), "--output", str(output_path)])
+            self.assertFalse(output_path.exists())
+
+    def test_campaign_collision_fails_silently_without_a_prefix(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = root / "source"
+            source.mkdir()
+            (source / "contract.json").write_text(json.dumps(self._contract_with_canary("race")), encoding="utf-8")
+            (source / "safe.json").write_bytes((FIXTURES / "safe-export.json").read_bytes())
+            project = root / "project"
+            project.mkdir()
+            with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
+                self.assertEqual(main(["project", "create", "--directory", str(project), "--project-id", "fictional",
+                                       "--contract", str(source / "contract.json"), "--input", str(source / "safe.json")]), EXIT_PASS)
+            # "race" occurs in "tracecanary.campaign/v1" and in the old
+            # "TraceCanary: UNRESOLVED: " prefix that used to be printed.
+            summary = root / "summary.json"
+            self._assert_cli_fails_silently(["campaign", "run", str(project), "--save-summary", str(summary)])
+            self.assertFalse(summary.exists())
