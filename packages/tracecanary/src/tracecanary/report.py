@@ -10,7 +10,7 @@ from urllib.parse import quote
 from tracecanary.canonical import canonical_json
 
 Status = Literal["pass", "regression", "unresolved"]
-ReportMode = Literal["validate", "check", "diff", "batch", "demo", "starter", "coverage", "inspect-contract", "coverage-gate", "coverage-diff", "retention-matrix", "control-check", "population-gate", "dropped-telemetry"]
+ReportMode = Literal["validate", "check", "diff", "batch", "demo", "starter", "coverage", "inspect-contract", "coverage-gate", "coverage-diff", "retention-matrix", "control-check", "population-gate", "dropped-telemetry", "contract-review", "contract-save", "campaign", "campaign-compare", "campaign-evidence", "campaign-summary", "project-open", "project-save"]
 
 
 class ReportSummary(TypedDict):

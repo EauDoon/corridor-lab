@@ -40,7 +40,7 @@ This structural subset accepts the fields necessary for the stated v1 checks. In
 Library functions `check_trace` and `diff_traces` return the same JSON object the CLI prints with `--format json`. The object always contains:
 
 - `contract_version`: the pinned contract identifier.
-- `mode`: `validate`, `check`, `diff`, `batch`, `demo`, `starter`, `coverage`, `inspect-contract`, `coverage-gate`, `coverage-diff`, `retention-matrix`, `control-check`, `population-gate`, or `dropped-telemetry`.
+- `mode`: `validate`, `check`, `diff`, `batch`, `demo`, `starter`, `coverage`, `inspect-contract`, `coverage-gate`, `coverage-diff`, `retention-matrix`, `control-check`, `population-gate`, or `dropped-telemetry`. Contract review reports use `contract-review`, and campaign reports from the library use `campaign`. Desktop results and guidance also use `contract-save`, `campaign-compare`, `campaign-evidence`, `campaign-summary`, `project-open`, and `project-save`.
 - `status`: `pass`, `regression`, or `unresolved`.
 - `summary`: integer counters `canary_leaks` (TC001), `forbidden_attributes` (TC002), `forbidden_paths` (TC003), `missing_retained_fields` (TC004), `baseline_regressions` (TC005), and `total`. Other codes increment only `total`.
 - `violations`: findings ordered by code, path, label, and key.
@@ -60,7 +60,7 @@ validated and unresolved together; only invalid files increment `excluded_items`
 
 ## GUI guidance codes
 
-The desktop GUI reserves `GUI001` through `GUI006` for local, safe guidance. These codes never contain selected paths, input values, parser detail, or matched canary values.
+The desktop GUI reserves `GUI001` through `GUI008` for local, safe guidance. Guidance text is fixed wording, except that `GUI001` (contract review), `GUI005`, and `GUI006` (project actions) may append the underlying error message. That message can name a selected path, a manifest field, or a parser error, but it never quotes trace contents or a contract's canary values.
 
 | Code | Meaning |
 | --- | --- |
@@ -69,7 +69,13 @@ The desktop GUI reserves `GUI001` through `GUI006` for local, safe guidance. The
 | `GUI003` | A baseline selection is required for Diff. |
 | `GUI004` | A candidate selection is required for Diff. |
 | `GUI005` | A selected file could not be analyzed as supported JSON. |
-| `GUI006` | An empty destination directory is required for synthetic starter files. |
+| `GUI006` | An empty destination directory is required for synthetic starter files, or a project directory, manifest, or identifier is required or could not be used. |
+| `GUI007` | An explicit whole-number population minimum is required, or the entered minimum is invalid. |
+| `GUI008` | An explicit minimum retained-field ratio, or a batch directory, is required. |
+
+## Withheld reports
+
+Every rendering is checked against the contract's canary values as it is emitted: single-trace and batch reports, contract reviews, campaign reports, and saved campaign summaries and evidence. When a protected value occurs anywhere in that text, including TraceCanary's own fixed wording, the report is withheld. The CLI exits `2` and writes nothing to stdout or stderr, because any explanation could itself contain the value; the desktop returns an empty result. `contract review` reports a `conflict` at `canaries[N]` when a canary value occurs in TraceCanary's fixed report wording, so the collision can be fixed before a run. When the review's own text contains the value, the review is withheld the same way.
 
 The GUI may create synthetic starter files only after the user selects an empty destination directory. Its file mapping uses `safe-export.json` for Input and Baseline and `missing-operational-fields.json` for Candidate, so Diff demonstrates an intentional retained-field regression.
 

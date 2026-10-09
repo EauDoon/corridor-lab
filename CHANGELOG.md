@@ -76,6 +76,12 @@ Nothing here is published until the owner approves the release (see
 - **Evidence exports.** Value-free evidence bundles (campaign summary,
   thresholds, tool version, limitations) that never bundle canary
   values, contracts, or trace inputs.
+- **Canary collision diagnostic.** `contract review` reports a `conflict`
+  at `canaries[N]` when a canary value occurs in TraceCanary's own fixed
+  report wording (for example `PASS`), because every report containing that
+  wording would be withheld with exit 2 and no output. The value is never
+  echoed. The specification now lists every report mode the code emits,
+  the `GUI007` and `GUI008` guidance codes, and how withheld reports behave.
 
 #### Both packages
 
