@@ -12,9 +12,12 @@ are now deprecated; see the deprecation note at the top of each.
 
 ## [Unreleased]
 
-The next release is currently drafted as `0.3.0` pending owner approval.
-Nothing here is published until the owner approves the release (see
-`RELEASE-CHECKLIST.md`).
+## [0.3.0] - 2026-10-09
+
+Both packages ship 0.3.0, tagged `corridor-lab-v0.3.0` and
+`tracecanary-v0.3.0` on the same `main` commit. This section covers every
+change on `main` since 0.2.0 (2837b4c). The real-window Windows acceptance in
+`RELEASE-CHECKLIST.md` is a separate gate from these notes.
 
 ### Added
 
@@ -733,7 +736,8 @@ None.
 - No content has been invented; every entry traces back to
   `RELEASE-NOTES.md` or `PROGRESS.md`.
 
-[Unreleased]: https://github.com/EauDoon/operator-labs/compare/2837b4c...HEAD
+[Unreleased]: https://github.com/EauDoon/operator-labs/compare/corridor-lab-v0.3.0...HEAD
+[0.3.0]: https://github.com/EauDoon/operator-labs/compare/2837b4c...corridor-lab-v0.3.0
 [0.2.0]: https://github.com/EauDoon/operator-labs/compare/8f00cde...2837b4c
 [0.1.1]: https://github.com/EauDoon/operator-labs/compare/550a70d...8f00cde
 [0.1.0]: https://github.com/EauDoon/operator-labs/commit/550a70d

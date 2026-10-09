@@ -14,9 +14,9 @@ portable workflows run that check before building from a tag.
 `python tools/check_release.py --notes X.Y.Z` prints that section for
 `gh release create --notes-file`.
 
-- [ ] Review the exact candidate diff and CHANGELOG.md's Unreleased section.
-- [ ] Owner approves the version increments (both packages are currently 0.2.0;
-      the draft proposes 0.3.0). Keep package metadata and runtime versions aligned.
+- [ ] Review the exact candidate diff and CHANGELOG.md's dated section for the release.
+- [ ] Owner approves the version increments (both packages are currently 0.3.0).
+      Keep package metadata and runtime versions aligned.
 - [ ] Both package workflows and `Repo checks` pass on the exact candidate,
       including installed saved-project journeys outside the checkout with
       source imports excluded.
