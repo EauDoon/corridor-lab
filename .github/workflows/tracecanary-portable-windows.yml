@@ -4,9 +4,20 @@ on:
   workflow_dispatch:
   push:
     tags: ["tracecanary-v0.*"]
+  # A pull request that changes how the executable is built exercises the build.
+  pull_request:
+    paths:
+      - ".github/workflows/tracecanary-portable-windows.yml"
+      - "packages/tracecanary/TraceCanary.pyw"
+      - "packages/tracecanary/pyproject.toml"
+      - "tools/check_release.py"
 
 permissions:
   contents: read
+
+concurrency:
+  group: tracecanary-portable-windows-${{ github.ref }}
+  cancel-in-progress: false
 
 defaults:
   run:

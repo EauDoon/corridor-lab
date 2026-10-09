@@ -1,6 +1,7 @@
 # Operator Labs
 
-[![build](https://img.shields.io/github/actions/workflow/status/EauDoon/operator-labs/corridor-lab.yml?branch=main)](https://github.com/EauDoon/operator-labs/actions)
+[![Corridor Lab CI](https://img.shields.io/github/actions/workflow/status/EauDoon/operator-labs/corridor-lab.yml?branch=main&label=Corridor%20Lab%20CI)](https://github.com/EauDoon/operator-labs/actions/workflows/corridor-lab.yml)
+[![TraceCanary CI](https://img.shields.io/github/actions/workflow/status/EauDoon/operator-labs/tracecanary.yml?branch=main&label=TraceCanary%20CI)](https://github.com/EauDoon/operator-labs/actions/workflows/tracecanary.yml)
 [![license](https://img.shields.io/github/license/EauDoon/operator-labs)](https://github.com/EauDoon/operator-labs/blob/main/LICENSE)
 [![last commit](https://img.shields.io/github/last-commit/EauDoon/operator-labs)](https://github.com/EauDoon/operator-labs)
 

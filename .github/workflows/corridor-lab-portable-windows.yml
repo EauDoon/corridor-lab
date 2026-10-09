@@ -4,9 +4,20 @@ on:
   workflow_dispatch:
   push:
     tags: ["corridor-lab-v0.*"]
+  # A pull request that changes how the executable is built exercises the build.
+  pull_request:
+    paths:
+      - ".github/workflows/corridor-lab-portable-windows.yml"
+      - "packages/corridor-lab/CorridorLab.pyw"
+      - "packages/corridor-lab/pyproject.toml"
+      - "tools/check_release.py"
 
 permissions:
   contents: read
+
+concurrency:
+  group: corridor-lab-portable-windows-${{ github.ref }}
+  cancel-in-progress: false
 
 defaults:
   run:

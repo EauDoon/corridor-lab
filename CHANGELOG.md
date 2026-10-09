@@ -85,7 +85,13 @@ Nothing here is published until the owner approves the release (see
 
 #### Both packages
 
-- CI now runs on Linux, Windows, and macOS for Python 3.11 and 3.12.
+- CI now runs on Linux, Windows, and macOS for Python 3.11 through 3.14,
+  and both packages declare Python 3.13 and 3.14 support. Both suites gave
+  identical results on 3.13 and 3.14 before the classifiers were added.
+- Dependabot keeps the SHA-pinned workflow actions current with one
+  weekly grouped update. The portable Windows builds run on pull requests
+  that change their workflow, launcher, or packaging, and never cancel a
+  build already in progress.
 - Measured bounded workloads are recorded in PROGRESS.md; results sit
   well inside all declared bounds.
 
