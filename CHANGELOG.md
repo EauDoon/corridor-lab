@@ -152,6 +152,14 @@ Nothing here is published until the owner approves the release (see
   unsupported value such as `yaml` made `project validate` and `project
   create` exit 2. Project subcommands now resolve their own formats, as they
   already did for the commands that write reports.
+- **TraceCanary refused to promote the candidate a project already held.**
+  After `project create --candidate after.json`, the natural next step,
+  `project promote-baseline PROJECT --candidate after.json`, failed with
+  "project input already exists" because the project's copy has the same
+  name. A byte-identical regular file already in the project is now reused;
+  a different file with the same name, a link, or a folder is still refused.
+  Promotion also validates the new manifest before writing it, so a
+  manifest the loader would refuse never replaces a loadable one.
 - **Corridor Lab variant changes could not name a route id that contains a dot.**
   ``route.ROUTE_ID.FIELD`` split on the first dot, so ``my.route`` was read
   as route id ``my`` and a field of ``route.fx_rate``. Route ids may contain

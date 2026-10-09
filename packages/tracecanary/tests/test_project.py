@@ -198,8 +198,9 @@ class ProjectCliTests(unittest.TestCase):
             manifest_path = make_project(root)
             leaked = root / "leaked.json"
             leaked.write_text(json.dumps(bundle()["leaked-prompt.json"]), encoding="utf-8")
-            self.assertEqual(main(["project", "promote-baseline", str(root), "--candidate", str(leaked)]), 2)
             baseline_before = json.loads(manifest_path.read_text(encoding="utf-8"))["baseline"]["sha256"]
+            self.assertEqual(main(["project", "promote-baseline", str(root), "--candidate", str(leaked)]), 2)
+            self.assertEqual(json.loads(manifest_path.read_text(encoding="utf-8"))["baseline"]["sha256"], baseline_before)
             safe = root / "safe.json"
             safe.write_text(json.dumps(bundle()["safe-export.json"]), encoding="utf-8")
             self.assertEqual(main(["project", "promote-baseline", str(root), "--candidate", str(safe)]), 0)
@@ -279,6 +280,81 @@ class RecursiveBatchProjectTests(unittest.TestCase):
             self.assertEqual(main(["project", "validate", str(project)]), 0)
             (copied / "nested" / "child.json").write_text(payload + "\n", encoding="utf-8")
             self.assertEqual(main(["project", "validate", str(project)]), 2)
+
+
+class PromoteSavedCandidateTests(unittest.TestCase):
+    """Promoting the candidate a project already holds is the normal flow."""
+
+    def _create(self, root: Path) -> tuple[Path, Path]:
+        from tracecanary.cli import main
+
+        files = bundle()
+        source = root / "source"
+        source.mkdir()
+        (source / "contract.json").write_text(json.dumps(files["contract.json"]), encoding="utf-8")
+        (source / "before.json").write_text(json.dumps(files["missing-operational-fields.json"]), encoding="utf-8")
+        candidate = source / "after.json"
+        candidate.write_text(json.dumps(files["safe-export.json"]), encoding="utf-8")
+        project = root / "project"
+        project.mkdir()
+        self.assertEqual(main(["project", "create", "--directory", str(project), "--project-id", "fictional-promotion",
+                               "--contract", str(source / "contract.json"), "--baseline", str(source / "before.json"),
+                               "--candidate", str(candidate)]), 0)
+        return project, candidate
+
+    def test_promoting_the_saved_candidate_reuses_its_identical_copy(self):
+        with tempfile.TemporaryDirectory() as temporary, redirect_stdout(StringIO()), redirect_stderr(StringIO()) as err:
+            from tracecanary.cli import main
+
+            project, candidate = self._create(Path(temporary))
+            self.assertEqual(main(["project", "promote-baseline", str(project), "--candidate", str(candidate)]), 0)
+            self.assertEqual(err.getvalue(), "")
+            manifest = json.loads((project / PROJECT_MANIFEST_NAME).read_text(encoding="utf-8"))
+            self.assertEqual(manifest["baseline"]["path"], "inputs/after.json")
+            self.assertEqual(manifest["baseline"]["sha256"], manifest["candidate"]["sha256"])
+            self.assertEqual(main(["project", "validate", str(project)]), 0)
+
+    def test_a_different_file_with_the_same_name_is_still_refused(self):
+        with tempfile.TemporaryDirectory() as temporary, redirect_stdout(StringIO()), redirect_stderr(StringIO()) as err:
+            from tracecanary.cli import main
+
+            root = Path(temporary)
+            project, _ = self._create(root)
+            other = root / "other"
+            other.mkdir()
+            different = other / "after.json"
+            # The same passing export, serialized differently: other bytes.
+            different.write_text(json.dumps(bundle()["safe-export.json"], indent=2), encoding="utf-8")
+            manifest_before = (project / PROJECT_MANIFEST_NAME).read_bytes()
+            copy_before = (project / "inputs" / "after.json").read_bytes()
+            self.assertEqual(main(["project", "promote-baseline", str(project), "--candidate", str(different)]), 2)
+            self.assertIn("project input already exists", err.getvalue())
+            self.assertEqual((project / PROJECT_MANIFEST_NAME).read_bytes(), manifest_before)
+            self.assertEqual((project / "inputs" / "after.json").read_bytes(), copy_before)
+
+    def test_promotion_never_writes_a_manifest_the_loader_refuses(self):
+        with tempfile.TemporaryDirectory() as temporary, redirect_stdout(StringIO()), redirect_stderr(StringIO()):
+            from tracecanary.cli import main
+
+            import tracecanary.project as project_module
+
+            project, candidate = self._create(Path(temporary))
+            manifest_before = (project / PROJECT_MANIFEST_NAME).read_bytes()
+            real_parse = project_module.parse_manifest
+            seen: list[str] = []
+
+            def refuse_the_promoted_document(document):
+                baseline = document.get("baseline") if isinstance(document, dict) else None
+                seen.append(baseline.get("path") if isinstance(baseline, dict) else "")
+                if seen[-1] == "inputs/after.json":
+                    raise InputError("refused by the loader")
+                return real_parse(document)
+
+            with patch.object(project_module, "parse_manifest", side_effect=refuse_the_promoted_document):
+                self.assertEqual(main(["project", "promote-baseline", str(project), "--candidate", str(candidate)]), 2)
+            # The original manifest loaded, and the promoted document was checked before writing.
+            self.assertEqual(seen, ["inputs/before.json", "inputs/after.json"])
+            self.assertEqual((project / PROJECT_MANIFEST_NAME).read_bytes(), manifest_before)
 
 
 if __name__ == "__main__":

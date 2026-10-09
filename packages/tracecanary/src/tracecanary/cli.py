@@ -419,12 +419,13 @@ def _project_promote_baseline(directory: Path, candidate: Path) -> int:
         raise InputError("baseline promotion requires a candidate that satisfies the contract; failing candidates are never blessed")
     project_dir = directory.resolve() if directory.is_dir() else directory.parent.resolve()
     target = _copy_project_input(project_dir, candidate)
-    manifest = parse_manifest(load_json(loaded.path, max_bytes=contract.max_input_bytes, max_depth=contract.max_nesting))
     document = load_json(loaded.path, max_bytes=contract.max_input_bytes, max_depth=contract.max_nesting)
     from tracecanary.project import DEFAULT_MAX_INPUT_BYTES
 
     document["baseline"] = {"path": manifest_text_relative(project_dir, target),
                             "sha256": fingerprint_file(target, max_bytes=DEFAULT_MAX_INPUT_BYTES)}
+    # Never replace a loadable manifest with one the loader would refuse.
+    parse_manifest(document)
     write_report(loaded.path, canonical_json_text(document))
     print(f"Baseline promoted from {candidate.name}: the candidate satisfied the contract first.")
     return EXIT_PASS
