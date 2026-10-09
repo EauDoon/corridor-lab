@@ -194,7 +194,7 @@ The GitHub Actions workflow runs the suite on Windows, Linux, and macOS, install
 
 ## License
 
-Apache-2.0. See [LICENSE](LICENSE).
+MIT. See [LICENSE](LICENSE).
 
 ## Explicit report files
 

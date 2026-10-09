@@ -107,6 +107,14 @@ Nothing here is published until the owner approves the release (see
   **Recursive** and **Include paths** batch selectors, as `campaign run` and
   saved projects already did, and a population minimum that is not a whole
   number shows `GUI007` guidance instead of being dropped.
+- **License metadata aligned to the repository's MIT license.** The root
+  `LICENSE` is MIT, but both packages shipped an Apache-2.0 `LICENSE` and
+  declared `License: Apache-2.0` in wheel metadata. Both package `LICENSE`
+  files now carry the root MIT text, and each `pyproject.toml` declares the
+  SPDX expression `license = "MIT"` with `license-files = ["LICENSE"]`. This
+  replaces the TOML-table license and the license classifier, which setuptools
+  deprecates and stops building after 2027-02-18. Wheels now carry
+  `Metadata-Version: 2.4` and `License-Expression: MIT`.
 - Corridor Lab `corridor-lab.evidence/v1` documents gain an additive
   `inputs.baseline` key (`null` when no baseline was read). Batch evidence
   describes `inputs.scenario` as each JSON scenario in the scanned directory.

@@ -195,7 +195,7 @@ python -m unittest discover -s tests -v
 python -m compileall -q src
 ```
 
-Licensed under [Apache-2.0](LICENSE).
+Licensed under the [MIT License](LICENSE).
 
 ## Transaction what-if analysis
 

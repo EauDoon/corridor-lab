@@ -6,7 +6,7 @@
 
 Operator Labs contains two independent, offline Python 3.11+ tools. Each keeps
 its original distribution name, command-line and desktop entry points,
-documentation, tests, and Apache-2.0 license.
+documentation, and tests. Both are released under the repository's MIT license.
 
 | Package | Purpose |
 |---|---|

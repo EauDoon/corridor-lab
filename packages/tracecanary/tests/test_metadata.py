@@ -28,3 +28,15 @@ class MetadataTests(unittest.TestCase):
                 "Documentation": "https://github.com/EauDoon/operator-labs/tree/main/packages/tracecanary#readme",
             },
         )
+
+    def test_license_is_an_spdx_expression_with_its_file(self) -> None:
+        project = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))["project"]
+        self.assertEqual(project["license"], "MIT")
+        self.assertEqual(project["license-files"], ["LICENSE"])
+        # License classifiers are deprecated alongside table-form licenses.
+        self.assertFalse([item for item in project["classifiers"] if item.startswith("License ::")])
+
+    def test_shipped_license_text_is_mit(self) -> None:
+        text = (ROOT / "LICENSE").read_text(encoding="utf-8")
+        self.assertTrue(text.startswith("MIT License"))
+        self.assertIn("Copyright (c) 2026 EauDoon", text)
